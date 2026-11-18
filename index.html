@@ -406,13 +406,12 @@
         </div>
         <div class="field">
           <label>Kassör öppning</label>
-          <input list="kassorer" id="kr_oppning">
+          <select id="kr_oppning"></select>
         </div>
         <div class="field">
           <label>Kassör stängning</label>
-          <input list="kassorer" id="kr_stangning">
+          <select id="kr_stangning"></select>
         </div>
-        <datalist id="kassorer"></datalist>
       </div>
       <div class="row">
         <div class="field">
@@ -1653,14 +1652,6 @@ function computeDiff(varde, efter){
   if(varde === null || varde === undefined) return null;
   return varde - efter;
 }
-function distinctCashiers(){
-  const set = new Set();
-  KASSA.forEach(r=>{
-    if(r.oppning && r.oppning !== 'Stängt') set.add(r.oppning);
-    if(r.stangning && r.stangning !== 'Stängt') set.add(r.stangning);
-  });
-  return Array.from(set).sort().concat(['Stängt']);
-}
 function distinctYears(){
   const set = new Set(KASSA.map(r=>r.datum.slice(0,4)));
   return Array.from(set).sort();
@@ -1678,14 +1669,21 @@ function previousStartValue(datum){
 
 let krLoadedDatum = null;
 
+// Personalen som kan väljas i dagskassan (öppning/stängning) och som reparatör i "Gör artikel".
+// Fast lista – det går inte att skriva in nya namn. Ändras här.
+const PERSONAL = ['Jofa', 'Joel', 'Viktor', 'Jonte', 'Fabbe'];
+// Fyller en rullgardin med personalen (och "Stängt" i dagskassan). Står det ett annat namn på en äldre
+// dag (t.ex. "Fabian") visas det ändå när dagen öppnas, så att inget skrivs över av misstag.
+function krPersonOptions(sel, value){
+  const list = PERSONAL.concat(sel.id === 'ga_reparator' ? [] : ['Stängt']);
+  const extra = value && !list.includes(value) ? [value] : [];
+  sel.innerHTML = '<option value="">Välj…</option>'
+    + list.concat(extra).map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + (extra.includes(n) ? ' (äldre namn)' : '') + '</option>').join('');
+  sel.value = value || '';
+}
+function krSetPerson(id, value){ krPersonOptions(document.getElementById(id), value || ''); }
 function krRefreshCashierList(){
-  const dl = document.getElementById('kassorer');
-  dl.innerHTML = '';
-  distinctCashiers().forEach(name=>{
-    const opt = document.createElement('option');
-    opt.value = name;
-    dl.appendChild(opt);
-  });
+  ['kr_oppning', 'kr_stangning'].forEach(id => krSetPerson(id, document.getElementById(id).value));
   gaFillReparator(); // samma personer i "Gör artikel"
 }
 function krRefreshYearFilter(){
@@ -1746,11 +1744,11 @@ function krOnDatumChange(){
 function krLoadForEdit(r){
   krLoadedDatum = r.datum;
   document.getElementById('kr_datum').value = r.datum;
-  document.getElementById('kr_oppning').value = r.oppning || '';
+  krSetPerson('kr_oppning', r.oppning);
   document.getElementById('kr_innan').value = r.innan!==null && r.innan!==undefined ? formatAmount(r.innan,false) : '';
   document.getElementById('kr_fattin').value = r.fattIn!==null && r.fattIn!==undefined ? formatAmount(r.fattIn,false) : '0';
   document.getElementById('kr_utgift').value = r.utgift!==null && r.utgift!==undefined ? formatAmount(r.utgift,false) : '0';
-  document.getElementById('kr_stangning').value = r.stangning || '';
+  krSetPerson('kr_stangning', r.stangning);
   document.getElementById('kr_varde').value = r.varde!==null && r.varde!==undefined ? formatAmount(r.varde,false) : '';
   document.getElementById('kr_kommentar').value = r.kommentar || '';
   krRecalcEfterDiff();
@@ -2279,7 +2277,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-18d';
+const KASSAAPP_VERSION = '2026-11-18e';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -5434,12 +5432,12 @@ function gaPopulate(){
   gaFillSelect(ms, (PRISER.modeller || []).filter(m => gaMinnenFor(m).length).map(m => [m, m]), true);
   gaModelChanged();
 }
-// Personerna från dagskassan (öppnat/stängt), utan "Stängt".
+// Samma personal som i dagskassan (PERSONAL), utan "Stängt".
 function gaFillReparator(){
   const sel = document.getElementById('ga_reparator');
   if(!sel) return;
-  const namn = distinctCashiers().filter(n => n !== 'Stängt');
-  gaFillSelect(sel, [['', 'Välj…']].concat(namn.map(n => [n, n])), true);
+  const prev = PERSONAL.includes(sel.value) ? sel.value : '';
+  krPersonOptions(sel, prev);
 }
 const GA_ARBETSTID = { 0:'0h', 200:'0,5h', 400:'1h', 600:'1,5h' };
 // Samma formel som den tidigare fliken "Kalkyl till Fortnox": inköp + arbete + delar + övrigt.
