@@ -2350,7 +2350,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-18b';
+const KASSAAPP_VERSION = '2026-11-18c';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -2971,6 +2971,11 @@ function kassaFBOnPriser(docs, meta){
   if(meta.fromCache && !docs.length) return;
   const firstServer = !meta.fromCache && !kassaFBGotPriser;
   if(!meta.fromCache) kassaFBGotPriser = true;
+  // Har prislistan ändrats sedan den här enheten senast skickade den till Cloudflare? (t.ex. första
+  // gången efter flytten, eller om en ändring från en annan enhet inte hann skickas) → skicka.
+  if(firstServer && !localStorage.getItem(LS_FB_PRISER_DIRTY)){
+    setTimeout(()=>{ if(kassaPriserHash() !== localStorage.getItem(LS_API_PRISER_HASH)) kassaFBMirrorSoon('priser'); }, 0);
+  }
   if(firstServer && localStorage.getItem(LS_FB_PRISER_DIRTY)){
     // Priser ändrades på den här enheten innan Firebase var redo – skicka upp dem istället för att skriva över.
     kassaFBWritePriser();
@@ -3095,18 +3100,40 @@ function kassaFBMirrorFlags(){
   try{ return JSON.parse(localStorage.getItem(LS_FB_MIRROR) || '{}') || {}; }catch(e){ return {}; }
 }
 let kassaFBMirrorRunning = false;
+// Priserna skickas till Cloudflare (hemsidans kalkyler och GitHub-prisfilen räknar därifrån). Hashen
+// gör att varje enhet bara skickar när prislistan faktiskt skiljer sig från det den skickade senast.
+const LS_API_PRISER_HASH = 'kassaapp_api_priser_hash_v1';
+function kassaPriserHash(){
+  const t = JSON.stringify(PRISER); let h = 0;
+  for(let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+  return t.length + ':' + h;
+}
+async function kassaApiPushPriser(){
+  for(let attempt = 0; attempt < 3; attempt++){
+    if(attempt) await sheetsPause(attempt);
+    try{
+      const res = await sheetsFetchWithTimeout(KASSA_API_URL, {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ type:'priser', key: loadFortnoxKey(), priser: PRISER })
+      }, 20000);
+      const data = await res.json();
+      if(data && data.ok){ localStorage.setItem(LS_API_PRISER_HASH, kassaPriserHash()); return true; }
+      if(data && data.error) { console.warn('Priser till Cloudflare:', data.error); return false; }
+    }catch(e){ /* nytt försök */ }
+  }
+  return false;
+}
 async function kassaFBMirrorNow(){
-  if(kassaFBMirrorRunning || !loadSheetsUrl()) return;
+  if(kassaFBMirrorRunning) return;
   kassaFBMirrorRunning = true;
   try{
     const flags = kassaFBMirrorFlags();
     // Bara när vi har aktuell data från Firebase – annars kunde en gammal lista skriva över kopian.
-    if(flags.kassa && kassaFBGotKassa){
+    if(flags.kassa && kassaFBGotKassa && loadSheetsUrl()){
       if(await sheetsPush('kassa', KASSA.map(kassaRecordToRow))){ const f = kassaFBMirrorFlags(); delete f.kassa; localStorage.setItem(LS_FB_MIRROR, JSON.stringify(f)); }
     }
     if(flags.priser && kassaFBGotPriser){
-      const rows = Object.keys(PRISER).map(key => [key, JSON.stringify(PRISER[key])]);
-      if(await sheetsPush('priser', rows)){ const f = kassaFBMirrorFlags(); delete f.priser; localStorage.setItem(LS_FB_MIRROR, JSON.stringify(f)); }
+      if(await kassaApiPushPriser()){ const f = kassaFBMirrorFlags(); delete f.priser; localStorage.setItem(LS_FB_MIRROR, JSON.stringify(f)); }
     }
     const left = kassaFBMirrorFlags();
     if(!left.kassa && !left.priser){
@@ -3294,11 +3321,7 @@ function rdFindExistingModelKey(brand, scrapedName){
   return Object.keys(models).find(k => k.trim().toLowerCase() === target) || null;
 }
 async function iserviceUpdatePrices(){
-  const base = loadSheetsUrl();
-  if(!base){
-    alert('Prisuppdateringen använder samma Google Apps Script-koppling som synkar Kassaregister/Priser mot Google Sheets. Anslut den först i inställningarna på Kassaregister-fliken (samma webbadress fungerar för båda).');
-    return;
-  }
+  const base = KASSA_API_URL;
   const btn = document.getElementById('rd_update_prices');
   btn.disabled = true;
   rdSetUpdateStatus('Hämtar priser från iService…');
@@ -4354,6 +4377,10 @@ function trFortnoxMatchCustomer(foretag, customers){
 // Fortnox-listor (kunder/artiklar) kan kräva flera sidanrop server-side, och ibland en
 // token-förnyelse innan Apps Script ens börjar svara – ge dem gott om tid (30 s) så en helt
 // frisk hämtning inte avbryts i onödan av vår egen timeout (standard är annars bara 15 s).
+// Fortnox, priserna till hemsidan och iService-prislistan går via Cloudflare (sedan nov 2026) – snabbare
+// och stabilare än Google Apps Script, som bara sköter kopian av kassaregistret till Google Sheets.
+// Koden för tjänsten ligger i iservice-shop/sync/src/kassa.js.
+const KASSA_API_URL = 'https://iservice-sync.iservice-karlstad.workers.dev/kassa';
 const FORTNOX_FETCH_TIMEOUT_MS = 30000;
 function fortnoxTimeoutMessage(err){
   return (err && err.name === 'AbortError')
@@ -4361,8 +4388,7 @@ function fortnoxTimeoutMessage(err){
     : (err && err.message) || String(err);
 }
 async function fortnoxFetchJson(type){
-  const base = loadSheetsUrl();
-  if(!base) throw new Error('Ingen Apps Script-webbadress inställd (samma koppling som Google Sheets används för Fortnox) – ange den under ☁ Google Sheets högst upp.');
+  const base = KASSA_API_URL;
   const key = loadFortnoxKey();
   const url = base + (base.includes('?') ? '&' : '?') + 'type=' + type + '&key=' + encodeURIComponent(key);
   let res;
@@ -4377,8 +4403,7 @@ async function fortnoxFetchJson(type){
   return data;
 }
 async function fortnoxPostJson(type, payload){
-  const base = loadSheetsUrl();
-  if(!base) throw new Error('Ingen Apps Script-webbadress inställd (samma koppling som Google Sheets används för Fortnox) – ange den under ☁ Google Sheets högst upp.');
+  const base = KASSA_API_URL;
   const key = loadFortnoxKey();
   let res;
   try{
@@ -4401,8 +4426,7 @@ async function fortnoxPostJson(type, payload){
 // Ingen cache: varje kort har sin egen sökfråga (företagsnamn resp. "vad har lagats"), så det finns
 // inget gemensamt att återanvända mellan korten – och sökningen är snabb nog att köra på nytt varje gång.
 async function fortnoxSearchType_(type, query){
-  const base = loadSheetsUrl();
-  if(!base) throw new Error('Ingen Apps Script-webbadress inställd (samma koppling som Google Sheets används för Fortnox) – ange den under ☁ Google Sheets högst upp.');
+  const base = KASSA_API_URL;
   const key = loadFortnoxKey();
   const url = base + (base.includes('?') ? '&' : '?') + 'type=' + type + '&q=' + encodeURIComponent(query || '') + '&key=' + encodeURIComponent(key);
   let res;
@@ -5549,7 +5573,7 @@ document.getElementById('ga_pris').addEventListener('input', ()=>{
 });
 
 async function gaFindImei(imei){
-  const base = loadSheetsUrl();
+  const base = KASSA_API_URL;
   const url = base + (base.includes('?') ? '&' : '?') + 'type=fortnox_find_imei&imei=' + encodeURIComponent(imei) + '&key=' + encodeURIComponent(loadFortnoxKey());
   const res = await sheetsFetchWithTimeout(url, undefined, FORTNOX_FETCH_TIMEOUT_MS);
   const data = await res.json();
@@ -5593,7 +5617,7 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
   try{
     let data = null;
     try{
-      const res = await sheetsFetchWithTimeout(loadSheetsUrl(), {
+      const res = await sheetsFetchWithTimeout(KASSA_API_URL, {
         method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload)
       }, GA_CREATE_TIMEOUT_MS);
       data = await res.json();
