@@ -355,6 +355,7 @@
   <button data-tab="prisoffert">Prisoffert</button>
   <button data-tab="bestallningar">Beställningar</button>
   <button data-tab="fakturor">Fakturor</button>
+  <button data-tab="artikel">Gör artikel</button>
 </nav>
 
 <main>
@@ -1068,6 +1069,46 @@
   </div>
 </section>
 
+<!-- ===================== GÖR ARTIKEL ===================== -->
+<section id="tab-artikel" class="hidden">
+  <div class="card">
+    <h2>Gör artikel – inköpt telefon till Fortnox</h2>
+    <p class="small">Skapar en lagerartikel i Fortnox för en telefon ni köpt in. Benämningen byggs av valen nedan så att den alltid ser likadan ut (och webbshoppens lagersynk kan läsa den). Alltid: enhet styck, typ vara, lagervara, försäljningskonto 3200 och 1 st i lager.</p>
+    <div class="row">
+      <div class="field" style="flex:1 1 200px;"><label>Modell</label><select id="ga_modell"></select></div>
+      <div class="field" style="flex:1 1 120px;"><label>Minne</label><select id="ga_minne"></select></div>
+      <div class="field" style="flex:1 1 180px;"><label>Färg</label><select id="ga_farg"></select></div>
+      <div class="field" style="flex:1 1 170px;"><label>Skick</label>
+        <select id="ga_skick">
+          <option value="Nyskick">Nyskick</option>
+          <option value="MBS">Mycket bra skick</option>
+          <option value="BS">Bra skick</option>
+          <option value="OS">Okej skick</option>
+        </select>
+      </div>
+    </div>
+    <div class="result-box" id="ga_benamning" style="margin:4px 0 16px;font-weight:600;"></div>
+    <div class="row">
+      <div class="field" style="flex:1 1 200px;"><label>Säljarens namn</label><input type="text" id="ga_saljare" placeholder="Förnamn Efternamn"></div>
+      <div class="field" style="flex:1 1 160px;"><label>Säljarens telefon</label><input type="tel" id="ga_saljartel" placeholder="070-123 45 67"></div>
+      <div class="field" style="flex:1 1 220px;"><label>IMEI <span class="small">(*#06# på telefonen)</span></label><input type="text" id="ga_imei" inputmode="numeric" autocomplete="off" placeholder="15 siffror"></div>
+    </div>
+    <p class="small" id="ga_imei_status" style="margin:-4px 0 10px;"></p>
+    <div class="row">
+      <div class="field" style="flex:1 1 160px;"><label>Pris ut (kr) <span class="small" id="ga_pris_kalla"></span></label><input type="text" id="ga_pris" inputmode="decimal"></div>
+      <div class="field" style="flex:1 1 160px;"><label>Kalkylkostnad (kr)</label><input type="text" id="ga_kalkyl" inputmode="decimal"><span class="small" id="ga_kalkyl_tips"></span></div>
+    </div>
+    <div class="field"><label>Anteckningar <span class="small">(t.ex. inköpspris, vem som köpte in, tid, vad som lagats, anmärkningar som Face ID)</span></label>
+      <textarea id="ga_anteckning" rows="4" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;"></textarea>
+    </div>
+    <div class="row" style="align-items:center;">
+      <button class="btn" id="ga_spara">Skapa artikel i Fortnox</button>
+      <button class="btn secondary" id="ga_rensa">Rensa</button>
+    </div>
+    <div id="ga_resultat" style="margin-top:14px;"></div>
+  </div>
+</section>
+
 </main>
 
 <!-- Delade Trello-komponenter (redigeringsruta + historik-ruta) ligger medvetet utanför flik-sektionerna,
@@ -1583,7 +1624,7 @@ document.getElementById('mainTabs').addEventListener('click', (e) => {
   document.querySelectorAll('#mainTabs button').forEach(b=>b.classList.remove('active'));
   e.target.classList.add('active');
   const tab = e.target.dataset.tab;
-  ['kassaregister','kalkylator','priser','prisoffert','bestallningar','fakturor'].forEach(t=>{
+  ['kassaregister','kalkylator','priser','prisoffert','bestallningar','fakturor','artikel'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('hidden', t!==tab);
   });
   // På mobil: stäng hamburgermenyn så snart en flik väljs.
@@ -2252,6 +2293,7 @@ function prRenderMinneTable(){
   });
 }
 function renderAllPriceUI(){
+  if(typeof gaPopulate === 'function') gaPopulate();
   prRenderMainTable();
   prRenderMinneTable();
   ikPopulateSelects();
@@ -2308,7 +2350,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-15';
+const KASSAAPP_VERSION = '2026-11-18';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -5407,6 +5449,188 @@ function trInit(){
 }
 
 
+
+/* =========================================================================
+   GÖR ARTIKEL – en Fortnox-artikel per inköpt telefon
+   =========================================================================
+   Benämning: "Förnyad, iPhone 16 Pro 256GB Svart titan - Mycket bra skick". Färgerna är Apples
+   svenska namn, samma lista som webbshoppen (iservice-shop/catalog/data/colors.json), så att
+   lagersynken alltid kan tolka artikeln. Pris ut räknas som i "Vad vi säljer för" och kan ändras.
+   Själva skapandet sker i Apps Script (fortnoxCreatePhoneArticle_), som också stoppar dubbletter. */
+const GA_FARGER = {"iPhone 11":[["Svart",null],["Vit",null],["Lila",null],["Grön",null],["Gul",null],["Röd",null]],"iPhone 11 Pro":[["Midnattsgrön","Grön"],["Silver","Vit"],["Rymdgrå","Svart"],["Guld",null]],"iPhone 11 Pro Max":[["Midnattsgrön","Grön"],["Silver","Vit"],["Rymdgrå","Svart"],["Guld",null]],"iPhone 12":[["Svart",null],["Vit",null],["Röd",null],["Grön",null],["Blå",null],["Lila",null]],"iPhone 12 mini":[["Svart",null],["Vit",null],["Röd",null],["Grön",null],["Blå",null],["Lila",null]],"iPhone 12 Pro":[["Grafit","Svart"],["Silver","Vit"],["Guld",null],["Stillahavsblå","Blå"]],"iPhone 12 Pro Max":[["Grafit","Svart"],["Silver","Vit"],["Guld",null],["Stillahavsblå","Blå"]],"iPhone 13":[["Midnatt","Svart"],["Stjärnglans","Vit"],["Blå",null],["Rosa",null],["Röd",null],["Grön",null]],"iPhone 13 mini":[["Midnatt","Svart"],["Stjärnglans","Vit"],["Blå",null],["Rosa",null],["Röd",null],["Grön",null]],"iPhone 13 Pro":[["Grafit","Svart"],["Silver","Vit"],["Guld",null],["Sierrablå","Blå"],["Alpingrön","Grön"]],"iPhone 13 Pro Max":[["Grafit","Svart"],["Silver","Vit"],["Guld",null],["Sierrablå","Blå"],["Alpingrön","Grön"]],"iPhone 14":[["Midnatt","Svart"],["Stjärnglans","Vit"],["Lila",null],["Röd",null],["Blå",null],["Gul",null]],"iPhone 14 Plus":[["Midnatt","Svart"],["Stjärnglans","Vit"],["Lila",null],["Röd",null],["Blå",null],["Gul",null]],"iPhone 14 Pro":[["Rymdsvart","Svart"],["Silver","Vit"],["Guld",null],["Mörklila","Lila"]],"iPhone 14 Pro Max":[["Rymdsvart","Svart"],["Silver","Vit"],["Guld",null],["Mörklila","Lila"]],"iPhone 15":[["Svart",null],["Blå",null],["Grön",null],["Gul",null],["Rosa",null]],"iPhone 15 Plus":[["Svart",null],["Blå",null],["Grön",null],["Gul",null],["Rosa",null]],"iPhone 15 Pro":[["Svart titan","Svart"],["Vit titan","Vit"],["Blå titan","Blå"],["Naturlig titan","Naturlig"]],"iPhone 15 Pro Max":[["Svart titan","Svart"],["Vit titan","Vit"],["Blå titan","Blå"],["Naturlig titan","Naturlig"]],"iPhone 16":[["Svart",null],["Vit",null],["Rosa",null],["Blågrön","Grön"],["Ultramarin","Blå"]],"iPhone 16 Plus":[["Svart",null],["Vit",null],["Rosa",null],["Blågrön","Grön"],["Ultramarin","Blå"]],"iPhone 16 Pro":[["Svart titan","Svart"],["Vit titan","Vit"],["Naturlig titan","Naturlig"],["Ökentitan","Öken"]],"iPhone 16 Pro Max":[["Svart titan","Svart"],["Vit titan","Vit"],["Naturlig titan","Naturlig"],["Ökentitan","Öken"]],"iPhone 16e":[["Svart",null],["Vit",null]],"iPhone 17":[["Svart",null],["Vit",null],["Dimblå","Blå"],["Salvia","Grön"],["Lavendel","Lila"]],"iPhone 17 Air":[["Rymdsvart","Svart"],["Molnvit","Vit"],["Ljusguld","Guld"],["Himmelsblå","Blå"]],"iPhone 17 Pro":[["Silver","Vit"],["Kosmisk orange",null],["Djupblå","Blå"]],"iPhone 17 Pro Max":[["Silver","Vit"],["Kosmisk orange",null],["Djupblå","Blå"]],"iPhone 17e":[["Svart",null],["Vit",null]],"iPhone SE 2020":[["Svart",null],["Vit",null],["(PRODUCT)RED","Röd"]],"iPhone SE 2022":[["Midnatt","Svart"],["Stjärnglans","Vit"],["(PRODUCT)RED","Röd"]]};
+const GA_SKICK_NAMN = { Nyskick:'Nyskick', MBS:'Mycket bra skick', BS:'Bra skick', OS:'Okej skick' };
+const GA_CREATE_TIMEOUT_MS = 90000;
+let gaPrisAuto = true;
+
+function gaMinnenFor(modell){
+  const order = PRISER.minneOptioner || [];
+  return Object.keys(PRISER.modellMinne || {})
+    .filter(k => k.startsWith(modell + '||'))
+    .map(k => k.split('||')[1])
+    .sort((a,b) => order.indexOf(a) - order.indexOf(b));
+}
+function gaFillSelect(sel, items, keep){
+  const prev = keep ? sel.value : '';
+  sel.innerHTML = items.map(([v,t]) => '<option value="' + escapeHtml(v) + '">' + escapeHtml(t) + '</option>').join('');
+  if(prev && items.some(([v]) => v === prev)) sel.value = prev;
+}
+function gaPopulate(){
+  const ms = document.getElementById('ga_modell');
+  gaFillSelect(ms, (PRISER.modeller || []).filter(m => gaMinnenFor(m).length).map(m => [m, m]), true);
+  gaModelChanged();
+}
+function gaModelChanged(){
+  const modell = document.getElementById('ga_modell').value;
+  gaFillSelect(document.getElementById('ga_minne'), gaMinnenFor(modell).map(m => [m, m]), true);
+  const farger = GA_FARGER[modell] || [];
+  gaFillSelect(document.getElementById('ga_farg'),
+    [['', 'Välj färg…']].concat(farger.map(([namn, vardag]) => [namn, vardag ? namn + ' (' + vardag + ')' : namn])), true);
+  gaRecalc();
+}
+function gaBenamning(){
+  const modell = document.getElementById('ga_modell').value;
+  const minne = document.getElementById('ga_minne').value;
+  const farg = document.getElementById('ga_farg').value;
+  const skick = GA_SKICK_NAMN[document.getElementById('ga_skick').value];
+  if(!modell || !minne || !farg) return '';
+  return 'Förnyad, ' + modell + ' ' + minne + ' ' + farg + ' - ' + skick;
+}
+// IMEI: 15 siffror där den sista är en kontrollsiffra (Luhn) – fångar de flesta felskrivningar.
+function gaImeiOk(imei){
+  if(!/^\d{15}$/.test(imei)) return false;
+  let sum = 0;
+  for(let i = 0; i < 15; i++){
+    let d = Number(imei[i]);
+    if(i % 2 === 1){ d *= 2; if(d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+function gaImei(){ return document.getElementById('ga_imei').value.replace(/\D/g, ''); }
+function gaRecalc(){
+  const ben = gaBenamning();
+  const benEl = document.getElementById('ga_benamning');
+  benEl.textContent = ben ? ben : 'Välj modell, minne och färg för att se benämningen.';
+  benEl.className = ben ? 'result-box result-good' : 'result-box';
+
+  const modell = document.getElementById('ga_modell').value;
+  const minne = document.getElementById('ga_minne').value;
+  const skick = document.getElementById('ga_skick').value;
+  const bas = PRISER.modellMinne[modell + '||' + minne] || 0;
+  const kallaEl = document.getElementById('ga_pris_kalla');
+  if(gaPrisAuto){
+    const pris = bas > 0 && bas !== PRIS_PLATSHALLARE ? bas - conditionDeduction(bas, skick) : 0;
+    document.getElementById('ga_pris').value = pris > 0 ? formatAmount(pris, false) : '';
+    kallaEl.textContent = pris > 0 ? '(från "Vad vi säljer för")' : '(inget pris i prislistan – fyll i)';
+  }
+
+  // Tips från inköpskalkylen om den står på samma telefon (fylls inte i automatiskt – kalkylkostnaden
+  // innehåller oftast mer än själva inköpspriset).
+  const tips = document.getElementById('ga_kalkyl_tips');
+  const ikSamma = document.getElementById('ik_modell').value === modell && document.getElementById('ik_minne').value === minne && document.getElementById('ik_skick').value === skick;
+  const ikText = (document.querySelector('#ik_main_result') || {}).textContent || '';
+  const m = ikSamma && ikText.match(/Inköpspris\s*([\d\s .,]+)\s*kr/);
+  tips.textContent = m ? 'Inköpskalkylen: inköpspris ' + m[1].trim() + ' kr' : '';
+
+  const imei = gaImei();
+  const st = document.getElementById('ga_imei_status');
+  if(!imei){ st.textContent = ''; }
+  else if(imei.length !== 15){ st.textContent = imei.length + ' av 15 siffror'; st.style.color = 'var(--muted)'; }
+  else if(!gaImeiOk(imei)){ st.textContent = '⚠ IMEI-numret stämmer inte (kontrollsiffran) – kontrollera att det är rätt avskrivet.'; st.style.color = 'var(--coral-dark)'; }
+  else { st.textContent = '✓ Giltigt IMEI'; st.style.color = 'var(--green)'; }
+}
+['ga_minne','ga_farg','ga_skick'].forEach(id => document.getElementById(id).addEventListener('change', gaRecalc));
+document.getElementById('ga_modell').addEventListener('change', gaModelChanged);
+document.getElementById('ga_imei').addEventListener('input', gaRecalc);
+document.getElementById('ga_pris').addEventListener('input', ()=>{
+  gaPrisAuto = document.getElementById('ga_pris').value.trim() === '';
+  document.getElementById('ga_pris_kalla').textContent = gaPrisAuto ? '' : '(ändrat för hand)';
+});
+
+async function gaFindImei(imei){
+  const base = loadSheetsUrl();
+  const url = base + (base.includes('?') ? '&' : '?') + 'type=fortnox_find_imei&imei=' + encodeURIComponent(imei) + '&key=' + encodeURIComponent(loadFortnoxKey());
+  const res = await sheetsFetchWithTimeout(url, undefined, FORTNOX_FETCH_TIMEOUT_MS);
+  const data = await res.json();
+  if(!data || data.ok === false) throw new Error((data && data.error) || 'Okänt svar');
+  return data.items || [];
+}
+function gaVisa(html, ok){
+  document.getElementById('ga_resultat').innerHTML = '<div class="result-box ' + (ok ? 'result-good' : 'result-bad') + '">' + html + '</div>';
+}
+function gaVisaSkapad(a, warning){
+  gaVisa('<div style="font-size:13px;">Artikel skapad i Fortnox</div>'
+    + '<div style="font-size:30px;font-weight:700;margin:4px 0;">' + escapeHtml(a.articleNumber) + '</div>'
+    + '<div>' + escapeHtml(a.description || '') + '</div>'
+    + (a.imei ? '<div class="small">IMEI ' + escapeHtml(a.imei) + (a.quantityInStock !== undefined ? ' · i lager: ' + escapeHtml(a.quantityInStock) : '') + '</div>' : '')
+    + (warning ? '<div style="margin-top:8px;color:var(--coral-dark);">⚠ ' + escapeHtml(warning) + '</div>' : ''), true);
+}
+
+document.getElementById('ga_spara').addEventListener('click', async ()=>{
+  const btn = document.getElementById('ga_spara');
+  const description = gaBenamning();
+  const imei = gaImei();
+  const namn = document.getElementById('ga_saljare').value.trim();
+  const tel = document.getElementById('ga_saljartel').value.trim();
+  const salesPrice = parseAmount(document.getElementById('ga_pris').value);
+  const purchasePrice = parseAmount(document.getElementById('ga_kalkyl').value);
+  const fel = [];
+  if(!description) fel.push('modell, minne och färg');
+  if(!namn || !tel) fel.push('säljarens namn och telefon');
+  if(imei.length !== 15) fel.push('IMEI (15 siffror)');
+  if(!(salesPrice > 0)) fel.push('pris ut');
+  if(!(purchasePrice > 0)) fel.push('kalkylkostnad');
+  if(fel.length){ alert('Fyll i: ' + fel.join(', ') + '.'); return; }
+  if(!gaImeiOk(imei) && !confirm('IMEI-numrets kontrollsiffra stämmer inte – det är troligen felavskrivet. Spara ändå?')) return;
+  const manufacturer = (namn + ' ' + tel).trim();
+  if(manufacturer.length > 50 && !confirm('Namn + telefon är längre än 50 tecken och kortas av i Fortnox. Fortsätt?')) return;
+
+  btn.disabled = true;
+  gaVisa('Skapar artikeln i Fortnox… (kan ta upp till en minut)', true);
+  const payload = { type:'fortnox_create_article', key: loadFortnoxKey(), description, imei, manufacturer, salesPrice, purchasePrice,
+    note: document.getElementById('ga_anteckning').value.trim() };
+  try{
+    let data = null;
+    try{
+      const res = await sheetsFetchWithTimeout(loadSheetsUrl(), {
+        method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload)
+      }, GA_CREATE_TIMEOUT_MS);
+      data = await res.json();
+    }catch(err){
+      // Inget läsbart svar (timeout eller Googles felsida) – artikeln kan ändå ha skapats. Kolla
+      // med IMEI innan något görs om, annars kan samma telefon hamna två gånger i Fortnox.
+      gaVisa('Fick inget tydligt svar – kontrollerar om artikeln ändå skapades…', true);
+      const hits = await gaFindImei(imei);
+      if(hits.length){ gaVisaSkapad(hits[0], 'Svaret från Fortnox kom inte fram, men artikeln finns. Kontrollera pris ut och kalkylkostnad i Fortnox.'); gaEfterSkapad(); return; }
+      throw new Error('Ingen artikel med det här IMEI-numret hittades – försök igen. (' + fortnoxTimeoutMessage(err) + ')');
+    }
+    if(data && data.duplicate && data.duplicate.length){
+      const d = data.duplicate[0];
+      gaVisa('Telefonen finns redan i Fortnox som artikel <b>' + escapeHtml(d.articleNumber) + '</b>: ' + escapeHtml(d.description || '') + '. Ingen ny artikel skapades.', false);
+      return;
+    }
+    if(!data || data.ok === false) throw new Error((data && data.error) || 'Okänt fel från Fortnox-kopplingen.');
+    gaVisaSkapad(data.article, data.warning);
+    gaEfterSkapad();
+  }catch(err){
+    gaVisa('Kunde inte skapa artikeln: ' + escapeHtml(err.message), false);
+  }finally{
+    btn.disabled = false;
+  }
+});
+// Efter en lyckad artikel töms det som är unikt för telefonen, så nästa kan registreras direkt.
+function gaEfterSkapad(){
+  ['ga_imei','ga_saljare','ga_saljartel','ga_kalkyl','ga_anteckning'].forEach(id => document.getElementById(id).value = '');
+  gaPrisAuto = true;
+  gaRecalc();
+}
+document.getElementById('ga_rensa').addEventListener('click', ()=>{
+  gaEfterSkapad();
+  document.getElementById('ga_farg').value = '';
+  document.getElementById('ga_resultat').innerHTML = '';
+  gaRecalc();
+});
+
 /* =========================================================================
    INIT
    ========================================================================= */
@@ -5432,6 +5656,7 @@ loadOffert();
 renderOffert();
 sheetsInit();
 fortnoxKeyInit();
+gaPopulate();
 
 // KassaApp flyttade från Netlify till GitHub Pages i november 2026. På den gamla adressen visas en länk.
 if(/\.netlify\.app$/.test(location.hostname)){
