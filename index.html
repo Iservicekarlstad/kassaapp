@@ -397,7 +397,7 @@
 
   <div class="ga-head">
     <h2>Kassaregister</h2>
-    <p>Stäm av dagens kassa. "Innan" och "Efter" räknas ut automatiskt – fyll i det som kommit in, eventuella utgifter och vad som faktiskt finns i kassan.</p>
+    <p>Stäm av dagens kassa. "Innan" och "Efter" räknas ut automatiskt – fyll i det som kommit in och vad som faktiskt finns i kassan.</p>
   </div>
 
   <div class="ga-wrap">
@@ -418,7 +418,7 @@
         <div class="ga-grid">
           <div class="field kr-auto"><label>Innan <span class="small">– från gårdagen</span></label><input type="text" id="kr_innan" readonly></div>
           <div class="field"><label>Fått in (kr)</label><input type="text" id="kr_fattin" value="0" inputmode="decimal"></div>
-          <div class="field"><label>Utgift utöver Z (kr)</label><input type="text" id="kr_utgift" value="0" inputmode="decimal"></div>
+          <input type="hidden" id="kr_utgift" value="0"><!-- Utgift utöver Z används inte längre; behålls dold så gamla dagar räknas rätt -->
           <div class="field kr-auto"><label>Efter <span class="small">– ska finnas i kassan</span></label><input type="text" id="kr_efter" readonly></div>
         </div>
         <div class="ga-hint" style="margin-top:8px;">"Innan" är gårdagens teoretiska "Efter", så en eventuell differens följer med tills kassan rättats.</div>
@@ -474,7 +474,7 @@
     <div class="table-wrap">
       <table id="kr_table">
         <thead><tr>
-          <th>Datum</th><th>Öppning</th><th>Innan</th><th>Fått in</th><th>Utgift</th>
+          <th>Datum</th><th>Öppning</th><th>Innan</th><th>Fått in</th>
           <th>Efter</th><th>Stängning</th><th>Värde</th><th>Diff</th><th>Kommentar</th><th></th>
         </tr></thead>
         <tbody></tbody>
@@ -1953,7 +1953,7 @@ function krRenderTable(){
       tr.className = 'ok';
     }
     tr.innerHTML = `<td data-label="Datum">${r.datum}</td><td data-label="Öppning">${escapeHtml(r.oppning||'')}</td><td data-label="Innan">${r.innan!=null?formatAmount(r.innan,false):''}</td>
-      <td data-label="Fått in">${r.fattIn!=null?formatAmount(r.fattIn,false):''}</td><td data-label="Utgift">${r.utgift!=null?formatAmount(r.utgift,false):''}</td>
+      <td data-label="Fått in">${r.fattIn!=null?formatAmount(r.fattIn,false):''}</td>
       <td data-label="Efter">${r.efter!=null?formatAmount(r.efter,false):''}</td><td data-label="Stängning">${escapeHtml(r.stangning||'')}</td>
       <td data-label="Värde">${r.varde!=null?formatAmount(r.varde,false):''}</td><td data-label="Diff">${r.diff!=null?formatAmount(r.diff,false):''}</td>
       <td data-label="Kommentar">${escapeHtml(r.kommentar||'')}</td><td data-label="Åtgärd"><button class="btn secondary" style="padding:3px 8px;font-size:12px" data-edit="${r.datum}">Öppna</button></td>`;
@@ -2379,7 +2379,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-18h';
+const KASSAAPP_VERSION = '2026-11-19a';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
