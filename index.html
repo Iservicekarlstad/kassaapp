@@ -482,7 +482,6 @@
     <button data-sub="inkop" class="active">Inköpskalkyl</button>
     <button data-sub="saljer">Vad vi säljer för</button>
     <button data-sub="pris">Prissättning</button>
-    <button data-sub="fortnox">Kalkyl till Fortnox</button>
   </div>
 
   <!-- INKÖPSKALKYL -->
@@ -520,6 +519,27 @@
           <div id="ik_main_result" class="calc-main-result"></div>
         </div>
         <div id="ik_result" class="calc-details"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Checklista värdering</h2>
+      <div class="checklist">
+        <div>Sprucken display? / dålig touch</div>
+        <div>Sprucken baksida?</div>
+        <div>Sidoknappar</div>
+        <div>Framkamera / Fokus från olika avstånd</div>
+        <div>Bakkamera / Fokus från olika avstånd</div>
+        <div>Touch ID / Face ID</div>
+        <div>Wifi/bluetooth</div>
+        <div>Sim-kort / testa ring minst 15 sek</div>
+        <div>Mikrofoner / Gör rent innan test</div>
+        <div>Högtalare / Gör rent innan test</div>
+        <div>Laddning / Gör rent innan test</div>
+        <div>Kameraglas sprucket?</div>
+        <div>Batteri / Okänd del? kör 3utool</div>
+        <div>Truetone</div>
+        <div>Apple id utloggat</div>
+        <div>Ficklampa</div>
       </div>
     </div>
   </div>
@@ -576,68 +596,6 @@
   </div>
 
   <!-- FORTNOX -->
-  <div id="sub-fortnox" class="hidden">
-    <div class="card">
-      <h2>Kalkyl till Fortnox</h2>
-      <div class="row">
-        <div class="field">
-          <label>Inköp (kr)</label>
-          <input type="text" id="fx_inkop" value="0">
-        </div>
-        <div class="field">
-          <label>Arbetstid</label>
-          <select id="fx_arbetskostnad">
-            <option value="0" selected>0 h (0 kr)</option>
-            <option value="200">0,5 h (200 kr)</option>
-            <option value="400">1 h (400 kr)</option>
-            <option value="600">1,5 h (600 kr)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Modell (för reservdelspriser)</label>
-          <select id="fx_modell"></select>
-        </div>
-        <div class="field">
-          <label>Displaybyte</label>
-          <select id="fx_displaybyte"><option value="0">Nej</option><option value="1">Ja</option></select>
-        </div>
-        <div class="field">
-          <label>Batteribyte</label>
-          <select id="fx_batteribyte"><option value="0">Nej</option><option value="1">Ja</option></select>
-        </div>
-        <div class="field">
-          <label>Byte av baksida</label>
-          <select id="fx_baksida"><option value="0">Nej</option><option value="1">Ja</option></select>
-        </div>
-        <div class="field">
-          <label>Övrig materialkostnad (kr)</label>
-          <input type="text" id="fx_ovrigt" value="0">
-        </div>
-      </div>
-      <div id="fx_result"></div>
-    </div>
-    <div class="card">
-      <h2>Checklista värdering</h2>
-      <div class="checklist">
-        <div>Sprucken display? / dålig touch</div>
-        <div>Sprucken baksida?</div>
-        <div>Sidoknappar</div>
-        <div>Framkamera / Fokus från olika avstånd</div>
-        <div>Bakkamera / Fokus från olika avstånd</div>
-        <div>Touch ID / Face ID</div>
-        <div>Wifi/bluetooth</div>
-        <div>Sim-kort / testa ring minst 15 sek</div>
-        <div>Mikrofoner / Gör rent innan test</div>
-        <div>Högtalare / Gör rent innan test</div>
-        <div>Laddning / Gör rent innan test</div>
-        <div>Kameraglas sprucket?</div>
-        <div>Batteri / Okänd del? kör 3utool</div>
-        <div>Truetone</div>
-        <div>Apple id utloggat</div>
-        <div>Ficklampa</div>
-      </div>
-    </div>
-  </div>
 </section>
 
 <!-- ===================== PRISER ===================== -->
@@ -1094,12 +1052,32 @@
       <div class="field" style="flex:1 1 220px;"><label>IMEI <span class="small">(*#06# på telefonen)</span></label><input type="text" id="ga_imei" inputmode="numeric" autocomplete="off" placeholder="15 siffror"></div>
     </div>
     <p class="small" id="ga_imei_status" style="margin:-4px 0 10px;"></p>
+    <h3 style="margin:14px 0 8px;color:var(--navy);">Kalkyl</h3>
+    <div class="row">
+      <div class="field" style="flex:1 1 150px;"><label>Inköp (kr)</label><input type="text" id="ga_inkop" inputmode="decimal"><button type="button" class="reset-link hidden" id="ga_inkop_tips" style="margin-top:4px;color:var(--navy);border-color:var(--border);align-self:flex-start;"></button></div>
+      <div class="field" style="flex:1 1 170px;"><label>Inköpt av / reparatör</label><select id="ga_reparator"></select></div>
+      <div class="field" style="flex:1 1 150px;"><label>Arbetstid</label>
+        <select id="ga_arbetstid">
+          <option value="0">0 h (0 kr)</option>
+          <option value="200">0,5 h (200 kr)</option>
+          <option value="400">1 h (400 kr)</option>
+          <option value="600">1,5 h (600 kr)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 120px;"><label>Displaybyte</label><select id="ga_display"><option value="0">Nej</option><option value="1">Ja</option></select></div>
+      <div class="field" style="flex:1 1 120px;"><label>Batteribyte</label><select id="ga_batteri"><option value="0">Nej</option><option value="1">Ja</option></select></div>
+      <div class="field" style="flex:1 1 150px;"><label>Byte av baksida</label><select id="ga_baksida"></select></div>
+      <div class="field" style="flex:1 1 150px;"><label>Övrig materialkostnad (kr)</label><input type="text" id="ga_ovrigt" inputmode="decimal" value="0"></div>
+    </div>
+    <div id="ga_kalkyl_result" style="margin-bottom:12px;"></div>
     <div class="row">
       <div class="field" style="flex:1 1 160px;"><label>Pris ut (kr) <span class="small" id="ga_pris_kalla"></span></label><input type="text" id="ga_pris" inputmode="decimal"></div>
-      <div class="field" style="flex:1 1 160px;"><label>Kalkylkostnad (kr)</label><input type="text" id="ga_kalkyl" inputmode="decimal"><span class="small" id="ga_kalkyl_tips"></span></div>
+      <div class="field" style="flex:2 1 260px;"><label>Övrig anmärkning <span class="small">(valfritt, t.ex. Face ID fungerar ej)</span></label><input type="text" id="ga_anmarkning"></div>
     </div>
-    <div class="field"><label>Anteckningar <span class="small">(t.ex. inköpspris, vem som köpte in, tid, vad som lagats, anmärkningar som Face ID)</span></label>
-      <textarea id="ga_anteckning" rows="4" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;"></textarea>
+    <div class="field"><label>Anteckningar i Fortnox <span class="small">(fylls i automatiskt)</span></label>
+      <pre id="ga_anteckning_preview" style="margin:0;padding:10px 12px;background:#f0f1f9;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;white-space:pre-wrap;"></pre>
     </div>
     <div class="row" style="align-items:center;">
       <button class="btn" id="ga_spara">Skapa artikel i Fortnox</button>
@@ -1642,7 +1620,7 @@ document.getElementById('kalkSubtabs').addEventListener('click', (e) => {
   document.querySelectorAll('#kalkSubtabs button').forEach(b=>b.classList.remove('active'));
   e.target.classList.add('active');
   const sub = e.target.dataset.sub;
-  ['inkop','saljer','pris','fortnox'].forEach(t=>{
+  ['inkop','saljer','pris'].forEach(t=>{
     document.getElementById('sub-'+t).classList.toggle('hidden', t!==sub);
   });
 });
@@ -1708,6 +1686,7 @@ function krRefreshCashierList(){
     opt.value = name;
     dl.appendChild(opt);
   });
+  gaFillReparator(); // samma personer i "Gör artikel"
 }
 function krRefreshYearFilter(){
   const sel = document.getElementById('kr_year');
@@ -2170,54 +2149,6 @@ function berakPrissattning(){
 });
 
 /* =========================================================================
-   KALKYLATOR: FORTNOX
-   ========================================================================= */
-function berakFortnox(){
-  const H2 = parseAmount(document.getElementById('fx_inkop').value) || 0;
-  const H3 = parseAmount(document.getElementById('fx_arbetskostnad').value) || 0;
-  const modell = document.getElementById('fx_modell').value;
-  const displaybyte = document.getElementById('fx_displaybyte').value === '1';
-  const batteribyte = document.getElementById('fx_batteribyte').value === '1';
-  // "Byte av baksida": 0 = Nej, 1 = Ja (vanlig baksida), 2 = Ja med Housing (dyrare, bara valbart
-  // för iPhone 13 och nyare – se trBaksidaOptionsHtml/trIsHousingEligible).
-  const baksidaVal = document.getElementById('fx_baksida').value;
-  const H9 = parseAmount(document.getElementById('fx_ovrigt').value) || 0;
-
-  const H5 = displaybyte ? (PRISER.displayer[modell]||0) : 0;
-  const H7 = batteribyte ? (PRISER.batteri[modell]||0) : 0;
-  const H8 = baksidaVal === '2' ? (PRISER.baksidorHousing[modell]||0) : (baksidaVal === '1' ? (PRISER.baksidor[modell]||0) : 0);
-  const H10 = H2+H3+H5+H7+H8+H9;
-
-  const saknas = [];
-  if(displaybyte && PRISER.displayer[modell] === PRIS_PLATSHALLARE) saknas.push('display');
-  if(batteribyte && PRISER.batteri[modell] === PRIS_PLATSHALLARE) saknas.push('batteri');
-  if(baksidaVal === '1' && PRISER.baksidor[modell] === PRIS_PLATSHALLARE) saknas.push('baksida');
-  if(baksidaVal === '2' && PRISER.baksidorHousing[modell] === PRIS_PLATSHALLARE) saknas.push('baksida med housing');
-
-  const el = document.getElementById('fx_result');
-  el.innerHTML = prisVarningHtml(saknas) + `
-    <div class="kv"><span>Displaybyte</span><b>${formatAmount(H5)}</b></div>
-    <div class="kv"><span>Batteribyte</span><b>${formatAmount(H7)}</b></div>
-    <div class="kv"><span>Byte av baksida</span><b>${formatAmount(H8)}</b></div>
-    <div class="kv"><span>Övrig materialkostnad</span><b>${formatAmount(H9)}</b></div>
-    <div class="result-box result-good" style="margin-top:10px;font-size:18px;">Kalkylkostnad: ${formatAmount(H10)}</div>
-  `;
-}
-function fxPopulateSelect(){
-  const modellSel = document.getElementById('fx_modell');
-  modellSel.innerHTML = PRISER.modeller.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
-  trRefreshBaksidaSelect('fx_baksida', modellSel.value);
-}
-document.getElementById('fx_modell').addEventListener('change', ()=>{
-  trRefreshBaksidaSelect('fx_baksida', document.getElementById('fx_modell').value);
-  berakFortnox();
-});
-['fx_inkop','fx_arbetskostnad','fx_displaybyte','fx_batteribyte','fx_baksida','fx_ovrigt'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', berakFortnox);
-  document.getElementById(id).addEventListener('change', berakFortnox);
-});
-
-/* =========================================================================
    PRISER (redigerbar)
    ========================================================================= */
 function prRenderMainTable(){
@@ -2297,10 +2228,8 @@ function renderAllPriceUI(){
   prRenderMainTable();
   prRenderMinneTable();
   ikPopulateSelects();
-  fxPopulateSelect();
   berakInkopskalkyl();
   berakVadViSaljerFor();
-  berakFortnox();
 }
 document.getElementById('pr_addmodel').addEventListener('click', ()=>{
   const namn = prompt('Namn på ny modell (t.ex. "iPhone 18 Pro"):');
@@ -2350,7 +2279,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-18c';
+const KASSAAPP_VERSION = '2026-11-18d';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -5500,12 +5429,57 @@ function gaFillSelect(sel, items, keep){
   if(prev && items.some(([v]) => v === prev)) sel.value = prev;
 }
 function gaPopulate(){
+  gaFillReparator();
   const ms = document.getElementById('ga_modell');
   gaFillSelect(ms, (PRISER.modeller || []).filter(m => gaMinnenFor(m).length).map(m => [m, m]), true);
   gaModelChanged();
 }
+// Personerna från dagskassan (öppnat/stängt), utan "Stängt".
+function gaFillReparator(){
+  const sel = document.getElementById('ga_reparator');
+  if(!sel) return;
+  const namn = distinctCashiers().filter(n => n !== 'Stängt');
+  gaFillSelect(sel, [['', 'Välj…']].concat(namn.map(n => [n, n])), true);
+}
+const GA_ARBETSTID = { 0:'0h', 200:'0,5h', 400:'1h', 600:'1,5h' };
+// Samma formel som den tidigare fliken "Kalkyl till Fortnox": inköp + arbete + delar + övrigt.
+function gaKalkyl(){
+  const modell = document.getElementById('ga_modell').value;
+  const inkop = parseAmount(document.getElementById('ga_inkop').value) || 0;
+  const arbete = Number(document.getElementById('ga_arbetstid').value) || 0;
+  const display = document.getElementById('ga_display').value === '1';
+  const batteri = document.getElementById('ga_batteri').value === '1';
+  const baksida = document.getElementById('ga_baksida').value;
+  const ovrigt = parseAmount(document.getElementById('ga_ovrigt').value) || 0;
+  const pDisplay = display ? (PRISER.displayer[modell] || 0) : 0;
+  const pBatteri = batteri ? (PRISER.batteri[modell] || 0) : 0;
+  const pBaksida = baksida === '2' ? (PRISER.baksidorHousing[modell] || 0) : (baksida === '1' ? (PRISER.baksidor[modell] || 0) : 0);
+  const delar = [], saknas = [];
+  if(display){ delar.push('Display'); if(PRISER.displayer[modell] === PRIS_PLATSHALLARE) saknas.push('display'); }
+  if(batteri){ delar.push('Batteri'); if(PRISER.batteri[modell] === PRIS_PLATSHALLARE) saknas.push('batteri'); }
+  if(baksida === '1'){ delar.push('Baksida'); if(PRISER.baksidor[modell] === PRIS_PLATSHALLARE) saknas.push('baksida'); }
+  if(baksida === '2'){ delar.push('Baksida med housing'); if(PRISER.baksidorHousing[modell] === PRIS_PLATSHALLARE) saknas.push('baksida med housing'); }
+  if(ovrigt > 0) delar.push('Övrigt material');
+  return { inkop, arbete, pDisplay, pBatteri, pBaksida, ovrigt, delar, saknas,
+    kalkyl: inkop + arbete + pDisplay + pBatteri + pBaksida + ovrigt,
+    reparator: document.getElementById('ga_reparator').value };
+}
+// Texten i Fortnox-artikelns Anteckningar, t.ex.
+//   Inköp: 1000kr / Reparatör: Josef / Arbetstid: 1h / Delar som har bytts ut: Batteri
+function gaAnteckning(k){
+  const rader = [
+    'Inköp: ' + Math.round(k.inkop) + 'kr',
+    'Reparatör: ' + (k.reparator || '–'),
+    'Arbetstid: ' + (GA_ARBETSTID[k.arbete] || '0h'),
+    'Delar som har bytts ut: ' + (k.delar.length ? k.delar.join(', ') : 'Inget har bytts ut')
+  ];
+  const anm = document.getElementById('ga_anmarkning').value.trim();
+  if(anm) rader.push('Anmärkning: ' + anm);
+  return rader.join('\n');
+}
 function gaModelChanged(){
   const modell = document.getElementById('ga_modell').value;
+  trRefreshBaksidaSelect('ga_baksida', modell);
   gaFillSelect(document.getElementById('ga_minne'), gaMinnenFor(modell).map(m => [m, m]), true);
   const farger = GA_FARGER[modell] || [];
   gaFillSelect(document.getElementById('ga_farg'),
@@ -5549,13 +5523,21 @@ function gaRecalc(){
     kallaEl.textContent = pris > 0 ? '(från "Vad vi säljer för")' : '(inget pris i prislistan – fyll i)';
   }
 
-  // Tips från inköpskalkylen om den står på samma telefon (fylls inte i automatiskt – kalkylkostnaden
-  // innehåller oftast mer än själva inköpspriset).
-  const tips = document.getElementById('ga_kalkyl_tips');
+  // Står inköpskalkylen på samma telefon kan dess inköpspris hämtas med ett tryck.
+  const tips = document.getElementById('ga_inkop_tips');
   const ikSamma = document.getElementById('ik_modell').value === modell && document.getElementById('ik_minne').value === minne && document.getElementById('ik_skick').value === skick;
   const ikText = (document.querySelector('#ik_main_result') || {}).textContent || '';
   const m = ikSamma && ikText.match(/Inköpspris\s*([\d\s .,]+)\s*kr/);
-  tips.textContent = m ? 'Inköpskalkylen: inköpspris ' + m[1].trim() + ' kr' : '';
+  tips.classList.toggle('hidden', !m);
+  if(m){ tips.textContent = 'Använd inköpskalkylen: ' + m[1].trim() + ' kr'; tips.dataset.belopp = m[1].trim(); }
+
+  const k = gaKalkyl();
+  document.getElementById('ga_kalkyl_result').innerHTML = prisVarningHtml(k.saknas)
+    + (k.pDisplay ? '<div class="kv"><span>Displaybyte</span><b>' + formatAmount(k.pDisplay) + '</b></div>' : '')
+    + (k.pBatteri ? '<div class="kv"><span>Batteribyte</span><b>' + formatAmount(k.pBatteri) + '</b></div>' : '')
+    + (k.pBaksida ? '<div class="kv"><span>Byte av baksida</span><b>' + formatAmount(k.pBaksida) + '</b></div>' : '')
+    + '<div class="result-box ' + (k.kalkyl > 0 ? 'result-good' : '') + '" style="margin-top:8px;font-size:17px;">Kalkylkostnad: ' + formatAmount(k.kalkyl) + '</div>';
+  document.getElementById('ga_anteckning_preview').textContent = gaAnteckning(k);
 
   const imei = gaImei();
   const st = document.getElementById('ga_imei_status');
@@ -5564,7 +5546,12 @@ function gaRecalc(){
   else if(!gaImeiOk(imei)){ st.textContent = '⚠ IMEI-numret stämmer inte (kontrollsiffran) – kontrollera att det är rätt avskrivet.'; st.style.color = 'var(--coral-dark)'; }
   else { st.textContent = '✓ Giltigt IMEI'; st.style.color = 'var(--green)'; }
 }
-['ga_minne','ga_farg','ga_skick'].forEach(id => document.getElementById(id).addEventListener('change', gaRecalc));
+['ga_minne','ga_farg','ga_skick','ga_reparator','ga_arbetstid','ga_display','ga_batteri','ga_baksida'].forEach(id => document.getElementById(id).addEventListener('change', gaRecalc));
+['ga_inkop','ga_ovrigt','ga_anmarkning'].forEach(id => document.getElementById(id).addEventListener('input', gaRecalc));
+document.getElementById('ga_inkop_tips').addEventListener('click', ()=>{
+  document.getElementById('ga_inkop').value = document.getElementById('ga_inkop_tips').dataset.belopp || '';
+  gaRecalc();
+});
 document.getElementById('ga_modell').addEventListener('change', gaModelChanged);
 document.getElementById('ga_imei').addEventListener('input', gaRecalc);
 document.getElementById('ga_pris').addEventListener('input', ()=>{
@@ -5598,13 +5585,15 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
   const namn = document.getElementById('ga_saljare').value.trim();
   const tel = document.getElementById('ga_saljartel').value.trim();
   const salesPrice = parseAmount(document.getElementById('ga_pris').value);
-  const purchasePrice = parseAmount(document.getElementById('ga_kalkyl').value);
+  const k = gaKalkyl();
+  const purchasePrice = k.kalkyl;
   const fel = [];
   if(!description) fel.push('modell, minne och färg');
   if(!namn || !tel) fel.push('säljarens namn och telefon');
   if(imei.length !== 15) fel.push('IMEI (15 siffror)');
   if(!(salesPrice > 0)) fel.push('pris ut');
-  if(!(purchasePrice > 0)) fel.push('kalkylkostnad');
+  if(!(k.inkop > 0)) fel.push('inköp');
+  if(!k.reparator) fel.push('vem som köpt in / reparatör');
   if(fel.length){ alert('Fyll i: ' + fel.join(', ') + '.'); return; }
   if(!gaImeiOk(imei) && !confirm('IMEI-numrets kontrollsiffra stämmer inte – det är troligen felavskrivet. Spara ändå?')) return;
   const manufacturer = (namn + ' ' + tel).trim();
@@ -5613,7 +5602,7 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
   btn.disabled = true;
   gaVisa('Skapar artikeln i Fortnox… (kan ta upp till en minut)', true);
   const payload = { type:'fortnox_create_article', key: loadFortnoxKey(), description, imei, manufacturer, salesPrice, purchasePrice,
-    note: document.getElementById('ga_anteckning').value.trim() };
+    note: gaAnteckning(k) };
   try{
     let data = null;
     try{
@@ -5645,7 +5634,10 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
 });
 // Efter en lyckad artikel töms det som är unikt för telefonen, så nästa kan registreras direkt.
 function gaEfterSkapad(){
-  ['ga_imei','ga_saljare','ga_saljartel','ga_kalkyl','ga_anteckning'].forEach(id => document.getElementById(id).value = '');
+  // Reparatören står kvar (samma person gör ofta flera), resten av kalkylen nollställs.
+  ['ga_imei','ga_saljare','ga_saljartel','ga_inkop','ga_anmarkning'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ga_ovrigt').value = '0';
+  ['ga_arbetstid','ga_display','ga_batteri','ga_baksida'].forEach(id => document.getElementById(id).value = '0');
   gaPrisAuto = true;
   gaRecalc();
 }
@@ -5665,11 +5657,9 @@ krRefreshYearFilter();
 krClearForm();
 krRenderTable();
 ikPopulateSelects();
-fxPopulateSelect();
 berakInkopskalkyl();
 berakVadViSaljerFor();
 berakPrissattning();
-berakFortnox();
 prRenderMainTable();
 prRenderMinneTable();
 rdPopulateBrands();
