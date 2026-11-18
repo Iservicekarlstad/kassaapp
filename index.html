@@ -1051,6 +1051,19 @@
       <div class="field" style="flex:1 1 220px;"><label>IMEI <span class="small">(*#06# på telefonen)</span></label><input type="text" id="ga_imei" inputmode="numeric" autocomplete="off" placeholder="15 siffror"></div>
     </div>
     <p class="small" id="ga_imei_status" style="margin:-4px 0 10px;"></p>
+    <div class="row">
+      <div class="field" style="flex:1 1 170px;"><label>Betalning till säljaren</label>
+        <select id="ga_betalning">
+          <option value="">Välj…</option>
+          <option value="swish">Swish</option>
+          <option value="bank">Banköverföring</option>
+        </select>
+      </div>
+      <div class="field hidden" id="ga_pnr_field" style="flex:1 1 200px;"><label>Personnummer</label><input type="text" id="ga_pnr" inputmode="numeric" autocomplete="off" placeholder="ÅÅÅÅMMDD-XXXX"></div>
+      <div class="field hidden" id="ga_clearing_field" style="flex:1 1 130px;"><label>Clearingnummer</label><input type="text" id="ga_clearing" inputmode="numeric" autocomplete="off" placeholder="4–5 siffror"></div>
+      <div class="field hidden" id="ga_konto_field" style="flex:1 1 200px;"><label>Kontonummer</label><input type="text" id="ga_konto" inputmode="numeric" autocomplete="off"></div>
+    </div>
+    <p class="small" style="margin:-4px 0 10px;">När artikeln skapats läggs ett kort i Trello-listan "Inköpta mobiler som ska skickas pengar till" med namn, telefon, inköpspris, artikelnummer och personnummer/kontonummer.</p>
     <h3 style="margin:14px 0 8px;color:var(--navy);">Kalkyl</h3>
     <div class="row">
       <div class="field" style="flex:1 1 150px;"><label>Inköp (kr)</label><input type="text" id="ga_inkop" inputmode="decimal"><button type="button" class="reset-link hidden" id="ga_inkop_tips" style="margin-top:4px;color:var(--navy);border-color:var(--border);align-self:flex-start;"></button></div>
@@ -2277,7 +2290,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-18e';
+const KASSAAPP_VERSION = '2026-11-18f';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -5592,7 +5605,10 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
   if(!(salesPrice > 0)) fel.push('pris ut');
   if(!(k.inkop > 0)) fel.push('inköp');
   if(!k.reparator) fel.push('vem som köpt in / reparatör');
+  const betal = gaBetalUppgifter();
+  if(betal.fel) fel.push(betal.fel);
   if(fel.length){ alert('Fyll i: ' + fel.join(', ') + '.'); return; }
+  const betalkort = an => ({ namn, tel, inkop: k.inkop, betal, artikelnummer: an });
   if(!gaImeiOk(imei) && !confirm('IMEI-numrets kontrollsiffra stämmer inte – det är troligen felavskrivet. Spara ändå?')) return;
   const manufacturer = (namn + ' ' + tel).trim();
   if(manufacturer.length > 50 && !confirm('Namn + telefon är längre än 50 tecken och kortas av i Fortnox. Fortsätt?')) return;
@@ -5613,7 +5629,13 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
       // med IMEI innan något görs om, annars kan samma telefon hamna två gånger i Fortnox.
       gaVisa('Fick inget tydligt svar – kontrollerar om artikeln ändå skapades…', true);
       const hits = await gaFindImei(imei);
-      if(hits.length){ gaVisaSkapad(hits[0], 'Svaret från Fortnox kom inte fram, men artikeln finns. Kontrollera pris ut och kalkylkostnad i Fortnox.'); gaEfterSkapad(); return; }
+      if(hits.length){
+        gaVisaSkapad(hits[0], 'Svaret från Fortnox kom inte fram, men artikeln finns. Kontrollera pris ut och kalkylkostnad i Fortnox.');
+        const u = betalkort(hits[0].articleNumber);
+        gaEfterSkapad();
+        await gaBetalkortEfterArtikel(u);
+        return;
+      }
       throw new Error('Ingen artikel med det här IMEI-numret hittades – försök igen. (' + fortnoxTimeoutMessage(err) + ')');
     }
     if(data && data.duplicate && data.duplicate.length){
@@ -5623,15 +5645,117 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
     }
     if(!data || data.ok === false) throw new Error((data && data.error) || 'Okänt fel från Fortnox-kopplingen.');
     gaVisaSkapad(data.article, data.warning);
+    const u = betalkort(data.article.articleNumber);
     gaEfterSkapad();
+    await gaBetalkortEfterArtikel(u);
   }catch(err){
     gaVisa('Kunde inte skapa artikeln: ' + escapeHtml(err.message), false);
   }finally{
     btn.disabled = false;
   }
 });
+// ---- Betalning till säljaren: kort i Trello-listan "Inköpta mobiler som ska skickas pengar till" ----
+const GA_BETAL_LISTA = 'Inköpta mobiler som ska skickas pengar till';
+const GA_BETAL_ARBETSYTA = 'iService Crew';
+const LS_GA_BETAL_LISTA = 'kassaapp_tr_betallista_v1';
+function gaBetalningChanged(){
+  const v = document.getElementById('ga_betalning').value;
+  document.getElementById('ga_pnr_field').classList.toggle('hidden', v !== 'swish');
+  document.getElementById('ga_clearing_field').classList.toggle('hidden', v !== 'bank');
+  document.getElementById('ga_konto_field').classList.toggle('hidden', v !== 'bank');
+}
+document.getElementById('ga_betalning').addEventListener('change', gaBetalningChanged);
+// Personnummer: 10 eller 12 siffror med kontrollsiffra (Luhn på de 10 sista). Returnerar ÅÅÅÅMMDD-XXXX /
+// ÅÅMMDD-XXXX, eller null om det inte stämmer.
+function gaPersonnummer(raw){
+  const d = String(raw || '').replace(/\D/g, '');
+  if(d.length !== 10 && d.length !== 12) return null;
+  const tio = d.slice(-10);
+  let sum = 0;
+  for(let i = 0; i < 10; i++){ let x = Number(tio[i]) * (i % 2 === 0 ? 2 : 1); if(x > 9) x -= 9; sum += x; }
+  if(sum % 10 !== 0) return null;
+  return d.slice(0, -4) + '-' + d.slice(-4);
+}
+// Läser betalningsuppgifterna ur formuläret. {fel} om något saknas eller är fel.
+function gaBetalUppgifter(){
+  const typ = document.getElementById('ga_betalning').value;
+  if(!typ) return { fel: 'betalning (Swish eller banköverföring)' };
+  if(typ === 'swish'){
+    const pnr = gaPersonnummer(document.getElementById('ga_pnr').value);
+    return pnr ? { typ, rad: 'Personnummer: ' + pnr } : { fel: 'ett giltigt personnummer' };
+  }
+  const clearing = document.getElementById('ga_clearing').value.replace(/\D/g, '');
+  const konto = document.getElementById('ga_konto').value.replace(/\D/g, '');
+  if(clearing.length < 4 || clearing.length > 5) return { fel: 'clearingnummer (4–5 siffror)' };
+  if(konto.length < 6 || konto.length > 12) return { fel: 'kontonummer' };
+  // Visas som de skrevs in (t.ex. "8327-9, 934 117 856-7") – lättare att läsa av vid betalningen.
+  const visa = id => document.getElementById(id).value.trim().replace(/\s+/g, ' ');
+  return { typ, rad: 'Bankkonto & Clearing: ' + visa('ga_clearing') + ', ' + visa('ga_konto') };
+}
+// Hittar listans id via KassaApps Trello-koppling (helst på arbetsytan iService Crew). Sparas i webbläsaren.
+async function gaHittaBetalLista(){
+  try{ const c = JSON.parse(localStorage.getItem(LS_GA_BETAL_LISTA) || 'null'); if(c && c.id) return c.id; }catch(e){}
+  const mal = trNormalizeForCompare(GA_BETAL_LISTA);
+  const boards = await trFetch('/members/me/boards?fields=name,idOrganization&filter=open');
+  let orgId = null;
+  try{
+    const orgs = await trFetch('/members/me/organizations?fields=displayName');
+    const o = orgs.find(x => trNormalizeForCompare(x.displayName) === trNormalizeForCompare(GA_BETAL_ARBETSYTA));
+    if(o) orgId = o.id;
+  }catch(e){ /* ingen behörighet att läsa arbetsytor – sök på alla tavlor */ }
+  const ordning = boards.slice().sort((a,b) => (b.idOrganization === orgId) - (a.idOrganization === orgId));
+  for(const b of ordning){
+    let lists = [];
+    try{ lists = await trFetch('/boards/' + b.id + '/lists?fields=name&filter=open'); }catch(e){ continue; }
+    const hit = lists.find(l => trNormalizeForCompare(l.name) === mal);
+    if(hit){ localStorage.setItem(LS_GA_BETAL_LISTA, JSON.stringify({ id: hit.id, board: b.name })); return hit.id; }
+  }
+  throw new Error('hittade ingen Trello-lista som heter "' + GA_BETAL_LISTA + '"');
+}
+// Skapar kortet. Personnummer/kontonummer skickas i anropets innehåll, aldrig i webbadressen.
+async function gaSkapaBetalkort(u){
+  const cfg = loadTrelloConfig();
+  if(!cfg.apiKey || !cfg.token) throw new Error('Trello är inte anslutet på den här enheten (fliken Beställningar)');
+  const desc = ['Namn: ' + u.namn, u.betal.rad, 'Telefonnummer: ' + u.tel,
+    'Inköpspris: ' + Math.round(u.inkop) + ' kr', 'Artikelnummer: ' + u.artikelnummer].join('\n');
+  const name = u.namn + ' – ' + (u.betal.typ === 'swish' ? 'Swish' : 'Banköverföring') + ' ' + Math.round(u.inkop) + ' kr';
+  const skapa = async idList => trFetch('/cards', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idList, name, desc, pos: 'top' })
+  });
+  try{
+    return await skapa(await gaHittaBetalLista());
+  }catch(err){
+    // Listan kan ha flyttats eller tagits bort sedan id:t sparades – leta upp den på nytt en gång.
+    if(!localStorage.getItem(LS_GA_BETAL_LISTA)) throw err;
+    localStorage.removeItem(LS_GA_BETAL_LISTA);
+    return await skapa(await gaHittaBetalLista());
+  }
+}
+// Visar resultatet under artikelrutan, med knapp för nytt försök om Trello strulade.
+async function gaBetalkortEfterArtikel(u){
+  const box = document.createElement('div');
+  box.style.marginTop = '10px';
+  document.getElementById('ga_resultat').appendChild(box);
+  const kor = async ()=>{
+    box.innerHTML = '<div class="result-box">Skapar betalningskort i Trello…</div>';
+    try{
+      await gaSkapaBetalkort(u);
+      box.innerHTML = '<div class="result-box result-good">✓ Betalningskort skapat i Trello ("' + escapeHtml(GA_BETAL_LISTA) + '")</div>';
+    }catch(err){
+      box.innerHTML = '<div class="result-box result-bad">⚠ Artikeln skapades, men inte Trello-kortet: ' + escapeHtml(err.message)
+        + '. <button type="button" class="btn secondary" style="padding:4px 10px;font-size:12px;margin-left:6px;">Försök igen</button></div>';
+      box.querySelector('button').addEventListener('click', kor);
+    }
+  };
+  await kor();
+}
+
 // Efter en lyckad artikel töms det som är unikt för telefonen, så nästa kan registreras direkt.
 function gaEfterSkapad(){
+  ['ga_pnr','ga_clearing','ga_konto'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ga_betalning').value = '';
+  gaBetalningChanged();
   // Reparatören står kvar (samma person gör ofta flera), resten av kalkylen nollställs.
   ['ga_imei','ga_saljare','ga_saljartel','ga_inkop','ga_anmarkning'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('ga_ovrigt').value = '0';
