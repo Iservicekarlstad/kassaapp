@@ -1028,74 +1028,148 @@
 
 <!-- ===================== GÖR ARTIKEL ===================== -->
 <section id="tab-artikel" class="hidden">
-  <div class="card">
-    <h2>Gör artikel – inköpt telefon till Fortnox</h2>
-    <p class="small">Skapar en lagerartikel i Fortnox för en telefon ni köpt in. Benämningen byggs av valen nedan så att den alltid ser likadan ut (och webbshoppens lagersynk kan läsa den). Alltid: enhet styck, typ vara, lagervara, försäljningskonto 3200 och 1 st i lager.</p>
-    <div class="row">
-      <div class="field" style="flex:1 1 200px;"><label>Modell</label><select id="ga_modell"></select></div>
-      <div class="field" style="flex:1 1 120px;"><label>Minne</label><select id="ga_minne"></select></div>
-      <div class="field" style="flex:1 1 180px;"><label>Färg</label><select id="ga_farg"></select></div>
-      <div class="field" style="flex:1 1 170px;"><label>Skick</label>
-        <select id="ga_skick">
-          <option value="Nyskick">Nyskick</option>
-          <option value="MBS">Mycket bra skick</option>
-          <option value="BS">Bra skick</option>
-          <option value="OS">Okej skick</option>
-        </select>
+  <style>
+    #tab-artikel .ga-head{margin:4px 0 16px;}
+    #tab-artikel .ga-head h2{margin:0 0 4px;font-size:22px;color:var(--navy);}
+    #tab-artikel .ga-head p{margin:0;color:var(--muted);font-size:14px;}
+    #tab-artikel .ga-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start;}
+    #tab-artikel .ga-step{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px 20px;margin-bottom:14px;box-shadow:0 2px 10px rgba(3,8,107,0.04);}
+    #tab-artikel .ga-step h3{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:16px;font-weight:600;color:var(--navy);}
+    #tab-artikel .ga-num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;}
+    #tab-artikel .ga-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;}
+    #tab-artikel .ga-grid .field{margin:0;min-width:0;}
+    #tab-artikel .ga-grid .ga-wide{grid-column:1 / -1;}
+    #tab-artikel .field input,#tab-artikel .field select{width:100%;box-sizing:border-box;}
+    #tab-artikel .ga-hint{font-size:12px;color:var(--muted);margin-top:4px;min-height:15px;}
+    #tab-artikel .ga-seg{display:flex;flex-wrap:wrap;gap:6px;}
+    #tab-artikel .ga-seg button,#tab-artikel .ga-pill{flex:1 1 auto;padding:9px 14px;border:1.5px solid var(--border);background:#fff;border-radius:10px;font:inherit;font-size:14px;font-weight:500;color:var(--text);cursor:pointer;transition:all .12s ease;}
+    #tab-artikel .ga-seg button:hover,#tab-artikel .ga-pill:hover{border-color:var(--navy);}
+    #tab-artikel .ga-seg button.active,#tab-artikel .ga-pill.active{border-color:var(--navy);background:var(--navy);color:#fff;}
+    #tab-artikel .ga-pills{display:flex;flex-wrap:wrap;gap:8px;}
+    #tab-artikel .ga-pill{flex:0 0 auto;}
+    #tab-artikel .ga-sub{margin-top:14px;}
+    #tab-artikel .ga-summary{position:sticky;top:16px;}
+    #tab-artikel .ga-summary .ga-step{padding:18px;}
+    #tab-artikel .ga-sum-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:14px 0 6px;}
+    #tab-artikel .ga-sum-label:first-of-type{margin-top:0;}
+    #tab-artikel #ga_benamning{margin:0;font-weight:600;font-size:14px;}
+    #tab-artikel #ga_kalkyl_result .kv{font-size:13px;}
+    #tab-artikel #ga_anteckning_preview{margin:0;padding:10px 12px;background:#f4f5fb;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;white-space:pre-wrap;line-height:1.5;}
+    #tab-artikel .ga-actions{display:flex;gap:8px;margin-top:16px;}
+    #tab-artikel .ga-actions #ga_spara{flex:1 1 auto;padding:13px 16px;font-size:15px;}
+    @media (max-width: 900px){
+      #tab-artikel .ga-wrap{grid-template-columns:1fr;}
+      #tab-artikel .ga-summary{position:static;}
+    }
+  </style>
+
+  <div class="ga-head">
+    <h2>Gör artikel</h2>
+    <p>Registrera en inköpt telefon i Fortnox. Benämning, kalkylkostnad och anteckningar fylls i automatiskt.</p>
+  </div>
+
+  <div class="ga-wrap">
+    <div>
+      <div class="ga-step">
+        <h3><span class="ga-num">1</span> Telefonen</h3>
+        <div class="ga-grid">
+          <div class="field"><label>Modell</label><select id="ga_modell"></select></div>
+          <div class="field"><label>Minne</label><select id="ga_minne"></select></div>
+          <div class="field"><label>Färg</label><select id="ga_farg"></select></div>
+          <div class="field"><label>Skick</label>
+            <select id="ga_skick">
+              <option value="Nyskick">Nyskick</option>
+              <option value="MBS">Mycket bra skick</option>
+              <option value="BS">Bra skick</option>
+              <option value="OS">Okej skick</option>
+            </select>
+          </div>
+          <div class="field ga-wide"><label>IMEI <span class="small">– slå *#06# på telefonen</span></label><input type="text" id="ga_imei" inputmode="numeric" autocomplete="off" placeholder="15 siffror"><div class="ga-hint" id="ga_imei_status"></div></div>
+        </div>
       </div>
-    </div>
-    <div class="result-box" id="ga_benamning" style="margin:4px 0 16px;font-weight:600;"></div>
-    <div class="row">
-      <div class="field" style="flex:1 1 200px;"><label>Säljarens namn</label><input type="text" id="ga_saljare" placeholder="Förnamn Efternamn"></div>
-      <div class="field" style="flex:1 1 160px;"><label>Säljarens telefon</label><input type="tel" id="ga_saljartel" placeholder="070-123 45 67"></div>
-      <div class="field" style="flex:1 1 220px;"><label>IMEI <span class="small">(*#06# på telefonen)</span></label><input type="text" id="ga_imei" inputmode="numeric" autocomplete="off" placeholder="15 siffror"></div>
-    </div>
-    <p class="small" id="ga_imei_status" style="margin:-4px 0 10px;"></p>
-    <div class="row">
-      <div class="field" style="flex:1 1 170px;"><label>Betalning till säljaren</label>
-        <select id="ga_betalning">
+
+      <div class="ga-step">
+        <h3><span class="ga-num">2</span> Säljaren</h3>
+        <div class="ga-grid">
+          <div class="field"><label>För- och efternamn</label><input type="text" id="ga_saljare" placeholder="Förnamn Efternamn"></div>
+          <div class="field"><label>Telefon</label><input type="tel" id="ga_saljartel" placeholder="070-123 45 67"></div>
+        </div>
+      </div>
+
+      <div class="ga-step">
+        <h3><span class="ga-num">3</span> Betalning till säljaren</h3>
+        <select id="ga_betalning" class="hidden">
           <option value="">Välj…</option>
           <option value="swish">Swish</option>
           <option value="bank">Banköverföring</option>
         </select>
+        <div class="ga-seg" data-for="ga_betalning">
+          <button type="button" data-value="swish">Swish</button>
+          <button type="button" data-value="bank">Banköverföring</button>
+        </div>
+        <div class="ga-grid ga-sub">
+          <div class="field hidden" id="ga_pnr_field"><label>Personnummer</label><input type="text" id="ga_pnr" inputmode="numeric" autocomplete="off" placeholder="ÅÅÅÅMMDD-XXXX"></div>
+          <div class="field hidden" id="ga_clearing_field"><label>Clearingnummer</label><input type="text" id="ga_clearing" inputmode="numeric" autocomplete="off" placeholder="4–5 siffror"></div>
+          <div class="field hidden" id="ga_konto_field"><label>Kontonummer</label><input type="text" id="ga_konto" inputmode="numeric" autocomplete="off"></div>
+        </div>
+        <div class="ga-hint" style="margin-top:10px;">Ett kort med uppgifterna läggs i Trello-listan "Inköpta mobiler som ska skickas pengar till".</div>
       </div>
-      <div class="field hidden" id="ga_pnr_field" style="flex:1 1 200px;"><label>Personnummer</label><input type="text" id="ga_pnr" inputmode="numeric" autocomplete="off" placeholder="ÅÅÅÅMMDD-XXXX"></div>
-      <div class="field hidden" id="ga_clearing_field" style="flex:1 1 130px;"><label>Clearingnummer</label><input type="text" id="ga_clearing" inputmode="numeric" autocomplete="off" placeholder="4–5 siffror"></div>
-      <div class="field hidden" id="ga_konto_field" style="flex:1 1 200px;"><label>Kontonummer</label><input type="text" id="ga_konto" inputmode="numeric" autocomplete="off"></div>
-    </div>
-    <p class="small" style="margin:-4px 0 10px;">När artikeln skapats läggs ett kort i Trello-listan "Inköpta mobiler som ska skickas pengar till" med namn, telefon, inköpspris, artikelnummer och personnummer/kontonummer.</p>
-    <h3 style="margin:14px 0 8px;color:var(--navy);">Kalkyl</h3>
-    <div class="row">
-      <div class="field" style="flex:1 1 150px;"><label>Inköp (kr)</label><input type="text" id="ga_inkop" inputmode="decimal"><button type="button" class="reset-link hidden" id="ga_inkop_tips" style="margin-top:4px;color:var(--navy);border-color:var(--border);align-self:flex-start;"></button></div>
-      <div class="field" style="flex:1 1 170px;"><label>Inköpt av / reparatör</label><select id="ga_reparator"></select></div>
-      <div class="field" style="flex:1 1 150px;"><label>Arbetstid</label>
-        <select id="ga_arbetstid">
-          <option value="0">0 h (0 kr)</option>
-          <option value="200">0,5 h (200 kr)</option>
-          <option value="400">1 h (400 kr)</option>
-          <option value="600">1,5 h (600 kr)</option>
-        </select>
+
+      <div class="ga-step">
+        <h3><span class="ga-num">4</span> Reparation och kalkyl</h3>
+        <div class="ga-grid">
+          <div class="field"><label>Inköp (kr)</label><input type="text" id="ga_inkop" inputmode="decimal" placeholder="Vad vi betalar"><button type="button" class="reset-link hidden" id="ga_inkop_tips" style="margin-top:6px;color:var(--navy);border-color:var(--border);align-self:flex-start;"></button></div>
+          <div class="field"><label>Inköpt av / reparatör</label><select id="ga_reparator"></select></div>
+        </div>
+        <div class="ga-sub">
+          <label class="small" style="display:block;margin-bottom:6px;font-weight:500;">Arbetstid</label>
+          <select id="ga_arbetstid" class="hidden">
+            <option value="0">0 h (0 kr)</option>
+            <option value="200">0,5 h (200 kr)</option>
+            <option value="400">1 h (400 kr)</option>
+            <option value="600">1,5 h (600 kr)</option>
+          </select>
+          <div class="ga-seg" data-for="ga_arbetstid">
+            <button type="button" data-value="0">Ingen</button>
+            <button type="button" data-value="200">0,5 h</button>
+            <button type="button" data-value="400">1 h</button>
+            <button type="button" data-value="600">1,5 h</button>
+          </div>
+        </div>
+        <div class="ga-sub">
+          <label class="small" style="display:block;margin-bottom:6px;font-weight:500;">Utbytta delar</label>
+          <select id="ga_display" class="hidden"><option value="0">Nej</option><option value="1">Ja</option></select>
+          <select id="ga_batteri" class="hidden"><option value="0">Nej</option><option value="1">Ja</option></select>
+          <div class="ga-pills">
+            <button type="button" class="ga-pill" data-toggle="ga_display">Display</button>
+            <button type="button" class="ga-pill" data-toggle="ga_batteri">Batteri</button>
+          </div>
+        </div>
+        <div class="ga-grid ga-sub">
+          <div class="field"><label>Byte av baksida</label><select id="ga_baksida"></select></div>
+          <div class="field"><label>Övrigt material (kr)</label><input type="text" id="ga_ovrigt" inputmode="decimal" value="0"></div>
+          <div class="field ga-wide"><label>Anmärkning <span class="small">– valfritt, t.ex. Face ID fungerar ej</span></label><input type="text" id="ga_anmarkning"></div>
+        </div>
       </div>
     </div>
-    <div class="row">
-      <div class="field" style="flex:1 1 120px;"><label>Displaybyte</label><select id="ga_display"><option value="0">Nej</option><option value="1">Ja</option></select></div>
-      <div class="field" style="flex:1 1 120px;"><label>Batteribyte</label><select id="ga_batteri"><option value="0">Nej</option><option value="1">Ja</option></select></div>
-      <div class="field" style="flex:1 1 150px;"><label>Byte av baksida</label><select id="ga_baksida"></select></div>
-      <div class="field" style="flex:1 1 150px;"><label>Övrig materialkostnad (kr)</label><input type="text" id="ga_ovrigt" inputmode="decimal" value="0"></div>
+
+    <div class="ga-summary">
+      <div class="ga-step">
+        <div class="ga-sum-label">Benämning i Fortnox</div>
+        <div class="result-box" id="ga_benamning"></div>
+        <div class="ga-sum-label">Pris ut <span id="ga_pris_kalla" style="text-transform:none;letter-spacing:0;font-weight:400;"></span></div>
+        <div class="field" style="margin:0;"><input type="text" id="ga_pris" inputmode="decimal" style="font-size:18px;font-weight:600;"></div>
+        <div class="ga-sum-label">Kalkylkostnad</div>
+        <div id="ga_kalkyl_result"></div>
+        <div class="ga-sum-label">Anteckningar i Fortnox</div>
+        <pre id="ga_anteckning_preview"></pre>
+        <div class="ga-actions">
+          <button class="btn" id="ga_spara">Skapa artikel</button>
+          <button class="btn secondary" id="ga_rensa">Rensa</button>
+        </div>
+        <div id="ga_resultat" style="margin-top:14px;"></div>
+      </div>
     </div>
-    <div id="ga_kalkyl_result" style="margin-bottom:12px;"></div>
-    <div class="row">
-      <div class="field" style="flex:1 1 160px;"><label>Pris ut (kr) <span class="small" id="ga_pris_kalla"></span></label><input type="text" id="ga_pris" inputmode="decimal"></div>
-      <div class="field" style="flex:2 1 260px;"><label>Övrig anmärkning <span class="small">(valfritt, t.ex. Face ID fungerar ej)</span></label><input type="text" id="ga_anmarkning"></div>
-    </div>
-    <div class="field"><label>Anteckningar i Fortnox <span class="small">(fylls i automatiskt)</span></label>
-      <pre id="ga_anteckning_preview" style="margin:0;padding:10px 12px;background:#f0f1f9;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;white-space:pre-wrap;"></pre>
-    </div>
-    <div class="row" style="align-items:center;">
-      <button class="btn" id="ga_spara">Skapa artikel i Fortnox</button>
-      <button class="btn secondary" id="ga_rensa">Rensa</button>
-    </div>
-    <div id="ga_resultat" style="margin-top:14px;"></div>
   </div>
 </section>
 
@@ -2290,7 +2364,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-18f';
+const KASSAAPP_VERSION = '2026-11-18g';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -5518,9 +5592,10 @@ function gaImeiOk(imei){
 }
 function gaImei(){ return document.getElementById('ga_imei').value.replace(/\D/g, ''); }
 function gaRecalc(){
+  gaSyncKnappar();
   const ben = gaBenamning();
   const benEl = document.getElementById('ga_benamning');
-  benEl.textContent = ben ? ben : 'Välj modell, minne och färg för att se benämningen.';
+  benEl.textContent = ben ? ben : 'Välj modell, minne och färg.';
   benEl.className = ben ? 'result-box result-good' : 'result-box';
 
   const modell = document.getElementById('ga_modell').value;
@@ -5544,10 +5619,13 @@ function gaRecalc(){
 
   const k = gaKalkyl();
   document.getElementById('ga_kalkyl_result').innerHTML = prisVarningHtml(k.saknas)
+    + (k.inkop ? '<div class="kv"><span>Inköp</span><b>' + formatAmount(k.inkop) + '</b></div>' : '')
+    + (k.arbete ? '<div class="kv"><span>Arbete</span><b>' + formatAmount(k.arbete) + '</b></div>' : '')
     + (k.pDisplay ? '<div class="kv"><span>Displaybyte</span><b>' + formatAmount(k.pDisplay) + '</b></div>' : '')
     + (k.pBatteri ? '<div class="kv"><span>Batteribyte</span><b>' + formatAmount(k.pBatteri) + '</b></div>' : '')
     + (k.pBaksida ? '<div class="kv"><span>Byte av baksida</span><b>' + formatAmount(k.pBaksida) + '</b></div>' : '')
-    + '<div class="result-box ' + (k.kalkyl > 0 ? 'result-good' : '') + '" style="margin-top:8px;font-size:17px;">Kalkylkostnad: ' + formatAmount(k.kalkyl) + '</div>';
+    + (k.ovrigt ? '<div class="kv"><span>Övrigt material</span><b>' + formatAmount(k.ovrigt) + '</b></div>' : '')
+    + '<div class="result-box ' + (k.kalkyl > 0 ? 'result-good' : '') + '" style="margin-top:8px;font-size:20px;font-weight:700;text-align:center;">' + formatAmount(k.kalkyl) + '</div>';
   document.getElementById('ga_anteckning_preview').textContent = gaAnteckning(k);
 
   const imei = gaImei();
@@ -5658,7 +5736,35 @@ document.getElementById('ga_spara').addEventListener('click', async ()=>{
 const GA_BETAL_LISTA = 'Inköpta mobiler som ska skickas pengar till';
 const GA_BETAL_ARBETSYTA = 'iService Crew';
 const LS_GA_BETAL_LISTA = 'kassaapp_tr_betallista_v1';
+// Knappgrupperna (Swish/Bank, arbetstid) och delknapparna styr dolda rullgardiner, så att resten av
+// koden kan läsa .value precis som förut. gaSyncKnappar() visar vilken knapp som är vald.
+function gaSyncKnappar(){
+  document.querySelectorAll('#tab-artikel .ga-seg').forEach(seg=>{
+    const v = document.getElementById(seg.dataset.for).value;
+    seg.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.value === v));
+  });
+  document.querySelectorAll('#tab-artikel .ga-pill').forEach(p=>{
+    p.classList.toggle('active', document.getElementById(p.dataset.toggle).value === '1');
+  });
+}
+document.querySelectorAll('#tab-artikel .ga-seg button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const sel = document.getElementById(b.closest('.ga-seg').dataset.for);
+    sel.value = b.dataset.value;
+    sel.dispatchEvent(new Event('change'));
+    gaSyncKnappar();
+  });
+});
+document.querySelectorAll('#tab-artikel .ga-pill').forEach(p=>{
+  p.addEventListener('click', ()=>{
+    const sel = document.getElementById(p.dataset.toggle);
+    sel.value = sel.value === '1' ? '0' : '1';
+    sel.dispatchEvent(new Event('change'));
+    gaSyncKnappar();
+  });
+});
 function gaBetalningChanged(){
+  gaSyncKnappar();
   const v = document.getElementById('ga_betalning').value;
   document.getElementById('ga_pnr_field').classList.toggle('hidden', v !== 'swish');
   document.getElementById('ga_clearing_field').classList.toggle('hidden', v !== 'bank');
