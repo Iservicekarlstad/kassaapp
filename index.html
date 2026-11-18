@@ -90,10 +90,6 @@
   .checklist div { padding:3px 0; font-size:13px; }
   .hidden { display:none; }
   /* ---- Kassaregister: "Räkna kassan"-rutan bredvid Dagens kassaavstämning ---- */
-  .kr-top-row { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
-  .kr-top-row > .card { margin-bottom:20px; }
-  .kr-top-row > .card.kr-denom-card { flex:0 0 260px; min-width:230px; }
-  .kr-top-row > .card.kr-main-card { flex:1 1 420px; min-width:320px; }
   .small { font-size:12px; color: var(--muted); }
   .price-edit-row input { width:100px; }
   footer.note { font-size:12px; color:var(--muted); padding: 14px 28px 34px; text-align:center; }
@@ -197,10 +193,9 @@
     .card { padding:16px; }
 
     /* Formulärrader och kort-kolumner: stapla vertikalt istället för sida vid sida. */
-    .row, .calc-layout, .kr-top-row { flex-direction:column; }
+    .row, .calc-layout { flex-direction:column; }
     .row > .field { width:100%; min-width:0; }
     .calc-inputs, .calc-details { max-width:none !important; width:100%; }
-    .kr-top-row > .card { flex:0 0 auto !important; width:100%; min-width:0; }
 
     .field { min-width:0; width:100%; }
     .field input, .field select, .field textarea, textarea { font-size:16px; padding:10px 12px; } /* 16px hindrar iOS auto-zoom vid fokus */
@@ -362,92 +357,104 @@
 
 <!-- ===================== KASSAREGISTER ===================== -->
 <section id="tab-kassaregister">
-  <div class="kr-top-row">
-    <div class="card kr-denom-card">
-      <h2>Räkna kassan</h2>
-      <div class="field">
-        <label>Antal 500</label>
-        <input type="text" id="kd_500" value="0">
+  <style>
+    #tab-kassaregister .ga-head{margin:4px 0 16px;}
+    #tab-kassaregister .ga-head h2{margin:0 0 4px;font-size:22px;color:var(--navy);}
+    #tab-kassaregister .ga-head p{margin:0;color:var(--muted);font-size:14px;}
+    #tab-kassaregister .ga-wrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start;margin-bottom:20px;}
+    #tab-kassaregister .ga-step{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px 20px;margin-bottom:14px;box-shadow:0 2px 10px rgba(3,8,107,0.04);}
+    #tab-kassaregister .ga-step h3{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:16px;font-weight:600;color:var(--navy);}
+    #tab-kassaregister .ga-num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;}
+    #tab-kassaregister .ga-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;}
+    #tab-kassaregister .ga-grid .field{margin:0;min-width:0;}
+    #tab-kassaregister .ga-grid .ga-wide{grid-column:1 / -1;}
+    #tab-kassaregister .ga-step .field input,#tab-kassaregister .ga-step .field select{width:100%;box-sizing:border-box;}
+    #tab-kassaregister .ga-hint{font-size:12px;color:var(--muted);margin-top:4px;}
+    #tab-kassaregister .kr-grid1{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));}
+    #tab-kassaregister .kr-datum{display:flex;gap:8px;}
+    #tab-kassaregister .kr-datum input{min-width:0;}
+    #tab-kassaregister .kr-datum input{flex:1 1 auto;}
+    #tab-kassaregister .kr-datum .btn{padding:8px 14px;white-space:nowrap;}
+    #tab-kassaregister .kr-auto input{background:#f4f5fb;font-weight:600;color:var(--navy);}
+    #tab-kassaregister #kr_varde{font-size:20px;font-weight:600;padding:12px 14px;}
+    #tab-kassaregister #kr_diffbox{margin-top:14px;font-size:18px;font-weight:600;text-align:center;padding:16px;}
+    #tab-kassaregister .kr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;align-items:center;}
+    #tab-kassaregister .kr-actions #kr_spara{padding:12px 28px;font-size:15px;}
+    #tab-kassaregister .kr-actions #kr_radera{margin-left:auto;padding:8px 14px;font-size:13px;}
+    #tab-kassaregister .kr-side{position:sticky;top:16px;}
+    #tab-kassaregister .kd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;}
+    #tab-kassaregister .kd-grid .field{margin:0;min-width:0;}
+    #tab-kassaregister .kd-grid input{width:100%;box-sizing:border-box;text-align:right;}
+    #tab-kassaregister #kd_total{margin-top:14px;font-size:18px;font-weight:700;text-align:center;}
+    #tab-kassaregister .kd-actions{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+    #tab-kassaregister .kr-threshold{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);}
+    #tab-kassaregister .kr-threshold input{width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font:inherit;text-align:right;}
+    @media (max-width: 900px){
+      #tab-kassaregister .ga-wrap{grid-template-columns:1fr;}
+      #tab-kassaregister .kr-side{position:static;}
+    }
+  </style>
+
+  <div class="ga-head">
+    <h2>Kassaregister</h2>
+    <p>Stäm av dagens kassa. "Innan" och "Efter" räknas ut automatiskt – fyll i det som kommit in, eventuella utgifter och vad som faktiskt finns i kassan.</p>
+  </div>
+
+  <div class="ga-wrap">
+    <div>
+      <div class="ga-step">
+        <h3><span class="ga-num">1</span> Dag och kassörer</h3>
+        <div class="ga-grid kr-grid1">
+          <div class="field"><label>Datum</label>
+            <div class="kr-datum"><input type="date" id="kr_datum"><button class="btn secondary" id="kr_idag">Idag</button></div>
+          </div>
+          <div class="field"><label>Kassör öppning</label><select id="kr_oppning"></select></div>
+          <div class="field"><label>Kassör stängning</label><select id="kr_stangning"></select></div>
+        </div>
       </div>
-      <div class="field">
-        <label>Antal 200</label>
-        <input type="text" id="kd_200" value="0">
+
+      <div class="ga-step">
+        <h3><span class="ga-num">2</span> Kassans rörelser</h3>
+        <div class="ga-grid">
+          <div class="field kr-auto"><label>Innan <span class="small">– från gårdagen</span></label><input type="text" id="kr_innan" readonly></div>
+          <div class="field"><label>Fått in (kr)</label><input type="text" id="kr_fattin" value="0" inputmode="decimal"></div>
+          <div class="field"><label>Utgift utöver Z (kr)</label><input type="text" id="kr_utgift" value="0" inputmode="decimal"></div>
+          <div class="field kr-auto"><label>Efter <span class="small">– ska finnas i kassan</span></label><input type="text" id="kr_efter" readonly></div>
+        </div>
+        <div class="ga-hint" style="margin-top:8px;">"Innan" är gårdagens teoretiska "Efter", så en eventuell differens följer med tills kassan rättats.</div>
       </div>
-      <div class="field">
-        <label>Antal 100</label>
-        <input type="text" id="kd_100" value="0">
+
+      <div class="ga-step">
+        <h3><span class="ga-num">3</span> Avstämning</h3>
+        <div class="ga-grid">
+          <div class="field"><label>Värde i kassan (kr) <span class="small">– det du räknat</span></label><input type="text" id="kr_varde" inputmode="decimal"></div>
+          <div class="field"><label>Kommentar <span class="small">– valfritt</span></label><input type="text" id="kr_kommentar"></div>
+        </div>
+        <div id="kr_diffbox" class="result-box">Inget värde inlagt än</div>
+        <div class="kr-actions">
+          <button class="btn" id="kr_spara">Spara</button>
+          <button class="btn secondary" id="kr_rensa">Rensa</button>
+          <button class="btn danger" id="kr_radera">Radera post</button>
+        </div>
       </div>
-      <div class="field">
-        <label>Antal 50</label>
-        <input type="text" id="kd_50" value="0">
-      </div>
-      <div class="field">
-        <label>Antal 20</label>
-        <input type="text" id="kd_20" value="0">
-      </div>
-      <div class="field">
-        <label>Mynt i kr</label>
-        <input type="text" id="kd_mynt" value="0">
-      </div>
-      <div id="kd_total" class="result-box result-good" style="margin-top:8px;">Totalbelopp: 0,00 kr</div>
-      <button class="btn secondary" id="kd_rensa" style="width:100%; margin-top:10px;">Rensa formulär</button>
     </div>
 
-    <div class="card kr-main-card">
-      <h2>Dagens kassaavstämning</h2>
-      <div class="row">
-        <div class="field">
-          <label>Datum</label>
-          <input type="date" id="kr_datum">
+    <div class="kr-side">
+      <div class="ga-step">
+        <h3>Räkna kassan</h3>
+        <div class="kd-grid">
+          <div class="field"><label>500-lappar</label><input type="text" id="kd_500" value="0" inputmode="numeric"></div>
+          <div class="field"><label>200-lappar</label><input type="text" id="kd_200" value="0" inputmode="numeric"></div>
+          <div class="field"><label>100-lappar</label><input type="text" id="kd_100" value="0" inputmode="numeric"></div>
+          <div class="field"><label>50-lappar</label><input type="text" id="kd_50" value="0" inputmode="numeric"></div>
+          <div class="field"><label>20-lappar</label><input type="text" id="kd_20" value="0" inputmode="numeric"></div>
+          <div class="field"><label>Mynt (kr)</label><input type="text" id="kd_mynt" value="0" inputmode="decimal"></div>
         </div>
-        <div class="field">
-          <label>&nbsp;</label>
-          <button class="btn secondary" id="kr_idag">Idag</button>
+        <div id="kd_total" class="result-box result-good">Totalbelopp: 0,00 kr</div>
+        <div class="kd-actions">
+          <button class="btn" id="kd_anvand">Använd som värde i kassan</button>
+          <button class="btn secondary" id="kd_rensa">Nollställ</button>
         </div>
-        <div class="field">
-          <label>Kassör öppning</label>
-          <select id="kr_oppning"></select>
-        </div>
-        <div class="field">
-          <label>Kassör stängning</label>
-          <select id="kr_stangning"></select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field">
-          <label>Innan (auto, gårdagens teoretiska "Efter" – ev. diff följer med)</label>
-          <input type="text" id="kr_innan" readonly>
-        </div>
-        <div class="field">
-          <label>Fått in (kr)</label>
-          <input type="text" id="kr_fattin" value="0">
-        </div>
-        <div class="field">
-          <label>Utgift utöver Z (kr)</label>
-          <input type="text" id="kr_utgift" value="0">
-        </div>
-        <div class="field">
-          <label>Efter (auto)</label>
-          <input type="text" id="kr_efter" readonly>
-        </div>
-        <div class="field">
-          <label>Värde i kassan (kr)</label>
-          <input type="text" id="kr_varde">
-        </div>
-        <div class="field">
-          <label>Varningsgräns (kr)</label>
-          <input type="number" id="kr_threshold" value="50" style="width:90px">
-        </div>
-      </div>
-      <div class="field" style="min-width:100%">
-        <label>Kommentar</label>
-        <input type="text" id="kr_kommentar">
-      </div>
-      <div id="kr_diffbox" class="result-box">Inget värde inlagt än</div>
-      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn" id="kr_spara">Spara</button>
-        <button class="btn danger" id="kr_radera">Radera post</button>
-        <button class="btn secondary" id="kr_rensa">Rensa formulär</button>
       </div>
     </div>
   </div>
@@ -458,6 +465,7 @@
       <label class="small">År:</label>
       <select id="kr_year"></select>
       <span class="pill" id="kr_summary"></span>
+      <label class="kr-threshold">Varningsgräns ± <input type="number" id="kr_threshold" value="50"> kr</label>
       <span style="flex:1"></span>
       <button class="btn secondary" id="kr_export">Exportera CSV</button>
       <button class="btn secondary" id="kr_import_btn">Importera CSV</button>
@@ -2054,15 +2062,22 @@ document.getElementById('kr_import_file').addEventListener('change', (e)=>{
    sparas/synkas inte någonstans, är bara ett räknehjälpmedel för stunden)
    ========================================================================= */
 const KR_DENOM_FIELDS = { kd_500: 500, kd_200: 200, kd_100: 100, kd_50: 50, kd_20: 20 };
-function krDenomCalc(){
+function krDenomTotal(){
   let total = 0;
   Object.keys(KR_DENOM_FIELDS).forEach(id=>{
     const antal = parseInt(document.getElementById(id).value, 10) || 0;
     total += antal * KR_DENOM_FIELDS[id];
   });
-  total += parseAmount(document.getElementById('kd_mynt').value) || 0;
-  document.getElementById('kd_total').textContent = 'Totalbelopp: ' + formatAmount(total);
+  return total + (parseAmount(document.getElementById('kd_mynt').value) || 0);
 }
+function krDenomCalc(){
+  document.getElementById('kd_total').textContent = 'Totalbelopp: ' + formatAmount(krDenomTotal());
+}
+// För över det räknade beloppet till "Värde i kassan" i avstämningen.
+document.getElementById('kd_anvand').addEventListener('click', ()=>{
+  document.getElementById('kr_varde').value = formatAmount(krDenomTotal(), false);
+  krRecalcEfterDiff();
+});
 ['kd_500','kd_200','kd_100','kd_50','kd_20','kd_mynt'].forEach(id=>{
   document.getElementById(id).addEventListener('input', krDenomCalc);
 });
@@ -2364,7 +2379,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-18g';
+const KASSAAPP_VERSION = '2026-11-18h';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
