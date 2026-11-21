@@ -2210,18 +2210,29 @@ function trRefreshBaksidaSelect(selectId, modell){
   sel.value = Array.from(sel.options).some(o => o.value === prevValue) ? prevValue : '0';
 }
 
-function ikPopulateSelects(){
-  const modellSel = document.getElementById('ik_modell');
-  modellSel.innerHTML = PRISER.modeller.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
-  const minneSel = document.getElementById('ik_minne');
-  minneSel.innerHTML = PRISER.minneOptioner.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
-  const vsModellSel = document.getElementById('vs_modell');
-  if(vsModellSel) vsModellSel.innerHTML = PRISER.modeller.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
-  const vsMinneSel = document.getElementById('vs_minne');
-  if(vsMinneSel) vsMinneSel.innerHTML = PRISER.minneOptioner.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
-  trRefreshBaksidaSelect('ik_baksida', modellSel.value);
+// Kalkylernas rullgardiner: bara modeller som har minst ett inköpspris, och för vald modell bara
+// de minnen som finns i prislistan (gaMinnenFor) – så man inte kan välja en kombination utan pris.
+// Valet behålls när listan byggs om (t.ex. när priser kommer in från en annan enhet).
+function prFillModellMinne(modellId, minneId){
+  const ms = document.getElementById(modellId);
+  if(!ms) return;
+  gaFillSelect(ms, (PRISER.modeller || []).filter(m => gaMinnenFor(m).length).map(m => [m, m]), true);
+  prFillMinne(modellId, minneId);
 }
+function prFillMinne(modellId, minneId){
+  const ms = document.getElementById(modellId), mi = document.getElementById(minneId);
+  if(!ms || !mi) return;
+  gaFillSelect(mi, gaMinnenFor(ms.value).map(m => [m, m]), true);
+}
+function ikPopulateSelects(){
+  prFillModellMinne('ik_modell', 'ik_minne');
+  prFillModellMinne('vs_modell', 'vs_minne');
+  trRefreshBaksidaSelect('ik_baksida', document.getElementById('ik_modell').value);
+}
+// Registreras före beräkningslyssnarna nedan, så minneslistan hinner bytas innan kalkylen räknar.
+document.getElementById('vs_modell').addEventListener('change', ()=>prFillMinne('vs_modell', 'vs_minne'));
 document.getElementById('ik_modell').addEventListener('change', ()=>{
+  prFillMinne('ik_modell', 'ik_minne');
   trRefreshBaksidaSelect('ik_baksida', document.getElementById('ik_modell').value);
   berakInkopskalkyl();
 });
@@ -2503,7 +2514,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-21d';
+const KASSAAPP_VERSION = '2026-11-21e';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
