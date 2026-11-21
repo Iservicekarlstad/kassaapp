@@ -367,6 +367,12 @@
     #tab-kassaregister .ga-num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;}
     #tab-kassaregister .ga-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;}
     #tab-kassaregister .ga-grid .field{margin:0;min-width:0;}
+    #tab-kassaregister .kr-loomis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 14px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);}
+    #tab-kassaregister .kr-loomis .field{margin:0;min-width:0;}
+    #tab-kassaregister .ga-seg{display:flex;gap:6px;}
+    #tab-kassaregister .ga-seg button{flex:1 1 0;padding:9px 14px;border:1.5px solid var(--border);background:#fff;border-radius:10px;font:inherit;font-size:14px;font-weight:500;color:var(--text);cursor:pointer;transition:all .12s ease;}
+    #tab-kassaregister .ga-seg button:hover{border-color:var(--navy);}
+    #tab-kassaregister .ga-seg button.active{border-color:var(--navy);background:var(--navy);color:#fff;}
     #tab-kassaregister .ga-grid .ga-wide{grid-column:1 / -1;}
     #tab-kassaregister .ga-step .field input,#tab-kassaregister .ga-step .field select{width:100%;box-sizing:border-box;}
     #tab-kassaregister .ga-hint{font-size:12px;color:var(--muted);margin-top:4px;}
@@ -397,7 +403,7 @@
 
   <div class="ga-head">
     <h2>Kassaregister</h2>
-    <p>Stäm av dagens kassa. "Innan" och "Efter" räknas ut automatiskt – fyll i det som kommit in och vad som faktiskt finns i kassan.</p>
+    <p>Stäm av dagens kassa. "Innan" och "Efter" räknas ut automatiskt – fyll i det som kommit in, eventuell Loomisinsättning och vad som faktiskt finns i kassan.</p>
   </div>
 
   <div class="ga-wrap">
@@ -418,8 +424,13 @@
         <div class="ga-grid">
           <div class="field kr-auto"><label>Innan <span class="small">– från gårdagen</span></label><input type="text" id="kr_innan" readonly></div>
           <div class="field"><label>Fått in (kr)</label><input type="text" id="kr_fattin" value="0" inputmode="decimal"></div>
-          <input type="hidden" id="kr_utgift" value="0"><!-- Utgift utöver Z används inte längre; behålls dold så gamla dagar räknas rätt -->
           <div class="field kr-auto"><label>Efter <span class="small">– ska finnas i kassan</span></label><input type="text" id="kr_efter" readonly></div>
+        </div>
+        <div class="kr-loomis">
+          <div class="field"><label>Loomisinsättning <span class="small">– har pengar tagits ur kassan till Loomis?</span></label>
+            <div class="ga-seg" id="kr_loomis_val"><button type="button" data-loomis="nej" class="active">Nej</button><button type="button" data-loomis="ja">Ja</button></div>
+          </div>
+          <div class="field" id="kr_loomis_falt" hidden><label>Belopp till Loomis (kr)</label><input type="text" id="kr_utgift" value="0" inputmode="decimal" placeholder="0"></div>
         </div>
         <div class="ga-hint" style="margin-top:8px;">"Innan" är gårdagens teoretiska "Efter", så en eventuell differens följer med tills kassan rättats.</div>
       </div>
@@ -474,7 +485,7 @@
     <div class="table-wrap">
       <table id="kr_table">
         <thead><tr>
-          <th>Datum</th><th>Öppning</th><th>Innan</th><th>Fått in</th>
+          <th>Datum</th><th>Öppning</th><th>Innan</th><th>Fått in</th><th>Loomis</th>
           <th>Efter</th><th>Stängning</th><th>Värde</th><th>Diff</th><th>Kommentar</th><th></th>
         </tr></thead>
         <tbody></tbody>
@@ -1788,7 +1799,17 @@ function krRefreshYearFilter(){
   sel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
   if(years.includes(current)) sel.value = current;
 }
+// Loomisinsättning: sparas i fältet "utgift" (samma kolumn som förr hette "Utgift utöver Z").
+// Ja/Nej är bara visning – Ja visas alltid när ett belopp finns.
+let krLoomisOpen = false;
+function krLoomisSync(){
+  const belopp = parseAmount(document.getElementById('kr_utgift').value) || 0;
+  const ja = krLoomisOpen || belopp !== 0;
+  document.getElementById('kr_loomis_falt').hidden = !ja;
+  document.querySelectorAll('#kr_loomis_val button').forEach(b=>b.classList.toggle('active', (b.dataset.loomis==='ja') === ja));
+}
 function krRecalcEfterDiff(){
+  krLoomisSync();
   const innan = parseAmount(document.getElementById('kr_innan').value);
   const fattIn = parseAmount(document.getElementById('kr_fattin').value) || 0;
   const utgift = parseAmount(document.getElementById('kr_utgift').value) || 0;
@@ -1826,7 +1847,7 @@ function krOnDatumChange(){
     const prevStart = previousStartValue(datum);
     document.getElementById('kr_innan').value = prevStart!==null ? formatAmount(prevStart,false) : '0';
     document.getElementById('kr_fattin').value = '0';
-    document.getElementById('kr_utgift').value = '0';
+    krLoomisOpen = false; document.getElementById('kr_utgift').value = '0';
     document.getElementById('kr_oppning').value = '';
     document.getElementById('kr_stangning').value = '';
     document.getElementById('kr_varde').value = '';
@@ -1842,7 +1863,7 @@ function krLoadForEdit(r){
   krSetPerson('kr_oppning', r.oppning);
   document.getElementById('kr_innan').value = r.innan!==null && r.innan!==undefined ? formatAmount(r.innan,false) : '';
   document.getElementById('kr_fattin').value = r.fattIn!==null && r.fattIn!==undefined ? formatAmount(r.fattIn,false) : '0';
-  document.getElementById('kr_utgift').value = r.utgift!==null && r.utgift!==undefined ? formatAmount(r.utgift,false) : '0';
+  krLoomisOpen = false; document.getElementById('kr_utgift').value = r.utgift!==null && r.utgift!==undefined ? formatAmount(r.utgift,false) : '0';
   krSetPerson('kr_stangning', r.stangning);
   document.getElementById('kr_varde').value = r.varde!==null && r.varde!==undefined ? formatAmount(r.varde,false) : '';
   document.getElementById('kr_kommentar').value = r.kommentar || '';
@@ -1878,7 +1899,7 @@ function krClearForm(){
     const prevStart = previousStartValue(datum);
     document.getElementById('kr_innan').value = prevStart!==null ? formatAmount(prevStart,false) : '0';
     document.getElementById('kr_fattin').value = '0';
-    document.getElementById('kr_utgift').value = '0';
+    krLoomisOpen = false; document.getElementById('kr_utgift').value = '0';
     document.getElementById('kr_stangning').value = '';
     document.getElementById('kr_varde').value = '';
     document.getElementById('kr_kommentar').value = '';
@@ -1953,7 +1974,7 @@ function krRenderTable(){
       tr.className = 'ok';
     }
     tr.innerHTML = `<td data-label="Datum">${r.datum}</td><td data-label="Öppning">${escapeHtml(r.oppning||'')}</td><td data-label="Innan">${r.innan!=null?formatAmount(r.innan,false):''}</td>
-      <td data-label="Fått in">${r.fattIn!=null?formatAmount(r.fattIn,false):''}</td>
+      <td data-label="Fått in">${r.fattIn!=null?formatAmount(r.fattIn,false):''}</td><td data-label="Loomis">${r.utgift?formatAmount(r.utgift,false):''}</td>
       <td data-label="Efter">${r.efter!=null?formatAmount(r.efter,false):''}</td><td data-label="Stängning">${escapeHtml(r.stangning||'')}</td>
       <td data-label="Värde">${r.varde!=null?formatAmount(r.varde,false):''}</td><td data-label="Diff">${r.diff!=null?formatAmount(r.diff,false):''}</td>
       <td data-label="Kommentar">${escapeHtml(r.kommentar||'')}</td><td data-label="Åtgärd"><button class="btn secondary" style="padding:3px 8px;font-size:12px" data-edit="${r.datum}">Öppna</button></td>`;
@@ -2039,6 +2060,12 @@ document.getElementById('kr_idag').addEventListener('click', ()=>{
   krOnDatumChange();
 });
 document.getElementById('kr_datum').addEventListener('change', krOnDatumChange);
+document.querySelectorAll('#kr_loomis_val button').forEach(b=>b.addEventListener('click', ()=>{
+  krLoomisOpen = b.dataset.loomis === 'ja';
+  if(!krLoomisOpen) document.getElementById('kr_utgift').value = '0';
+  krRecalcEfterDiff();
+  if(krLoomisOpen){ const f = document.getElementById('kr_utgift'); if((parseAmount(f.value)||0) === 0) f.value = ''; f.focus(); }
+}));
 ['kr_innan','kr_fattin','kr_utgift','kr_varde','kr_threshold'].forEach(id=>{
   document.getElementById(id).addEventListener('input', krRecalcEfterDiff);
 });
@@ -2379,7 +2406,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-19a';
+const KASSAAPP_VERSION = '2026-11-21a';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
