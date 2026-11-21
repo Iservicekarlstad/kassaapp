@@ -237,6 +237,10 @@
   #tab-priser td.pr-actions .btn + .btn{margin-left:4px;}
   #tab-priser tr.pr-editing td{background:#fff7e0;}
   #tab-priser .pr-saknas{color:var(--coral);font-weight:600;font-size:12px;}
+  #tab-priser td.pr-rf{white-space:nowrap;}
+  #tab-priser td.pr-rf a{color:var(--navy);font-weight:600;}
+  #tab-priser .pr-rf-btn, #tab-priser .pr-rf-val .btn{padding:3px 10px;font-size:12px;margin:4px 4px 0 0;}
+  #tab-priser .pr-rf-val{white-space:normal;}
 
   @media print {
     /* display:none (istället för visibility:hidden) tar bort elementen helt ur layouten, så att
@@ -630,7 +634,8 @@
       <button class="btn" id="pr_addmodel">+ Lägg till modell</button>
       <button class="btn secondary" id="pr_addminne">+ Lägg till inköpspris (modell+minne)</button>
       <span style="flex:1"></span>
-      <button class="btn secondary" id="pr_reset">Återställ till grundpriser</button>
+      <span class="small" id="pr_undo_info" style="color:var(--muted);"></span>
+      <button class="btn secondary" id="pr_undo" disabled>↶ Ångra senaste ändring</button>
     </div>
     <h3>Batteri / Display / Baksida (per modell)</h3>
     <div class="table-wrap">
@@ -640,9 +645,10 @@
       </table>
     </div>
     <h3 style="margin-top:20px;">Inköpspris per modell + minne</h3>
+    <p class="small" id="pr_refurbed_info" style="color:var(--muted);margin-top:-4px;"></p>
     <div class="table-wrap">
       <table id="pr_minnetable">
-        <thead><tr><th>Modell</th><th>Minne</th><th>Inköpspris (kr)</th><th></th></tr></thead>
+        <thead><tr><th>Modell</th><th>Minne</th><th>Inköpspris (kr)</th><th>Refurbed</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -2333,10 +2339,96 @@ function prReadRow(tr){
   }
   return out;
 }
-function prSaved(){
+// "Ångra senaste ändring": varje ändring i Priser-fliken sparar vad som ändrades (före/efter) på den här
+// enheten. Ångra sätter bara tillbaka just de raderna, så ändringar från andra enheter i andra rader
+// skrivs inte över.
+const LS_PR_UNDO = 'kassaapp_priser_undo_v1';
+function prUndoLoad(){ try{ return JSON.parse(localStorage.getItem(LS_PR_UNDO) || '[]'); }catch(e){ return []; } }
+function prUndoSave(list){ try{ localStorage.setItem(LS_PR_UNDO, JSON.stringify(list.slice(-30))); }catch(e){} }
+function prDiff(a, b){
+  const out = [];
+  new Set([...Object.keys(a), ...Object.keys(b)]).forEach(sec=>{
+    const x = a[sec], y = b[sec];
+    if(Array.isArray(x) || Array.isArray(y) || typeof x !== 'object' || typeof y !== 'object' || !x || !y){
+      if(JSON.stringify(x) !== JSON.stringify(y)) out.push({sec, key:null, fore:x, efter:y});
+      return;
+    }
+    new Set([...Object.keys(x), ...Object.keys(y)]).forEach(key=>{
+      if(JSON.stringify(x[key]) !== JSON.stringify(y[key])) out.push({sec, key, fore:x[key], efter:y[key]});
+    });
+  });
+  return out;
+}
+function prAndring(beskrivning, fn){
+  const fore = JSON.parse(JSON.stringify(PRISER));
+  fn();
+  const d = prDiff(fore, PRISER);
+  if(!d.length) return;
+  const list = prUndoLoad(); list.push({ beskrivning, at: Date.now(), d }); prUndoSave(list);
   savePriser(PRISER);
   sheetsPushPriser();
-  prStopEdit();
+}
+function prAngra(){
+  const list = prUndoLoad();
+  const sista = list[list.length - 1];
+  if(!sista) return;
+  if(!confirm('Ångra: ' + sista.beskrivning + '?')) return;
+  list.pop(); prUndoSave(list);
+  sista.d.forEach(({sec, key, fore})=>{
+    if(key === null){ if(fore === undefined) delete PRISER[sec]; else PRISER[sec] = fore; return; }
+    if(!PRISER[sec]) PRISER[sec] = {};
+    if(fore === undefined) delete PRISER[sec][key]; else PRISER[sec][key] = fore;
+  });
+  savePriser(PRISER);
+  sheetsPushPriser();
+  prEditKey = null;
+  renderAllPriceUI();
+}
+function prRenderUndo(){
+  const btn = document.getElementById('pr_undo'), info = document.getElementById('pr_undo_info');
+  if(!btn) return;
+  const sista = prUndoLoad().slice(-1)[0];
+  btn.disabled = !sista;
+  info.textContent = sista ? 'Senast: ' + sista.beskrivning : '';
+}
+const prHela = v => Math.round(Number(v)||0).toLocaleString('sv-SE');
+const prKr = v => (Number(v) === PRIS_PLATSHALLARE ? 'ej satt' : prHela(v) + ' kr');
+
+// Refurbed-priser (Nyskick, NYTT batteri, billigaste färgen) – läses av servern varje natt kl. 23:59.
+const LS_REFURBED = 'kassaapp_refurbed_v1';
+let REFURBED = (()=>{ try{ return JSON.parse(localStorage.getItem(LS_REFURBED) || 'null'); }catch(e){ return null; } })();
+let prRefurbedVal = null;   // nyckel vars "Använd"-val är öppet
+async function prHamtaRefurbed(){
+  const key = loadFortnoxKey() || sheetsKey();
+  if(!key) return;
+  try{
+    const res = await fetch(KASSA_API_URL + '?type=refurbed_priser&key=' + encodeURIComponent(key));
+    const j = await res.json();
+    if(!j.ok) return;
+    REFURBED = j;
+    try{ localStorage.setItem(LS_REFURBED, JSON.stringify(j)); }catch(e){}
+    if(!prEditKey) prRenderMinneTable();
+  }catch(e){ /* nätverksfel – visa det som finns sparat */ }
+}
+function prRefurbedInfo(){
+  const el = document.getElementById('pr_refurbed_info');
+  if(!el) return;
+  if(!REFURBED || !REFURBED.at){ el.textContent = REFURBED && REFURBED.pagar ? 'Refurbed-priserna läses av just nu – första gången tar det en stund.' : 'Inga Refurbed-priser hämtade ännu.'; return; }
+  const d = new Date(REFURBED.at);
+  el.textContent = 'Refurbed-priser (Nyskick, nytt batteri, billigaste färgen) lästa ' + d.toLocaleString('sv-SE', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) +
+    (REFURBED.pagar ? ' – uppdateras just nu' : '') + '.';
+}
+function prRefurbedCell(key){
+  const r = REFURBED && REFURBED.priser && REFURBED.priser[key];
+  if(!r) return '<span class="small" style="color:var(--muted);">–</span>';
+  const lank = `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" title="${escapeHtml(r.farg || '')} – öppna hos Refurbed">${escapeHtml(prHela(r.pris))} kr</a>`;
+  if(prRefurbedVal === key){
+    return `<div class="pr-rf-val">${lank}<br>
+      <button class="btn" data-rf-anvand="${escapeHtml(key)}" data-rf-pris="${r.pris}">Använd ${escapeHtml(prHela(r.pris))} kr</button>
+      <button class="btn" data-rf-anvand="${escapeHtml(key)}" data-rf-pris="${r.pris - 100}">Använd ${escapeHtml(prHela(r.pris - 100))} kr (−100)</button>
+      <button class="btn secondary" data-rf-stang="1">Avbryt</button></div>`;
+  }
+  return `${lank} <button class="btn secondary pr-rf-btn" data-rf-oppna="${escapeHtml(key)}">Använd</button>`;
 }
 function prRenderMainTable(){
   const tbody = document.querySelector('#pr_maintable tbody');
@@ -2364,11 +2456,11 @@ function prRenderMainTable(){
     btn.addEventListener('click', ()=>{
       const modell = btn.dataset.removeModell;
       if(!confirm('Ta bort modellen "'+modell+'" och alla dess priser?')) return;
-      PRISER.modeller = PRISER.modeller.filter(m=>m!==modell);
-      delete PRISER.batteri[modell]; delete PRISER.displayer[modell]; delete PRISER.baksidor[modell]; delete PRISER.baksidorHousing[modell];
-      Object.keys(PRISER.modellMinne).forEach(k=>{ if(k.startsWith(modell+'||')) delete PRISER.modellMinne[k]; });
-      savePriser(PRISER);
-      sheetsPushPriser();
+      prAndring('tog bort modellen ' + modell, ()=>{
+        PRISER.modeller = PRISER.modeller.filter(m=>m!==modell);
+        delete PRISER.batteri[modell]; delete PRISER.displayer[modell]; delete PRISER.baksidor[modell]; delete PRISER.baksidorHousing[modell];
+        Object.keys(PRISER.modellMinne).forEach(k=>{ if(k.startsWith(modell+'||')) delete PRISER.modellMinne[k]; });
+      });
       renderAllPriceUI();
     });
   });
@@ -2377,8 +2469,8 @@ function prRenderMainTable(){
       const modell = btn.dataset.prSave.slice(2);
       const vals = prReadRow(btn.closest('tr'));
       if(!vals) return;
-      Object.keys(vals).forEach(f=>{ PRISER[f][modell] = vals[f]; });
-      prSaved();
+      prAndring(modell + ': ändrade reparationspriser', ()=>{ Object.keys(vals).forEach(f=>{ PRISER[f][modell] = vals[f]; }); });
+      prStopEdit();
     });
   });
 }
@@ -2395,6 +2487,7 @@ function prRenderMinneTable(){
       <td data-label="Modell" style="text-align:left">${escapeHtml(modell)}</td>
       <td data-label="Minne">${escapeHtml(minne)}</td>
       <td data-label="Inköpspris (kr)">${editing ? prInput('pris', PRISER.modellMinne[key]) : prCell(PRISER.modellMinne[key])}</td>
+      <td data-label="Refurbed" class="pr-rf">${prRefurbedCell(key)}</td>
       <td data-label="Åtgärd" class="pr-actions">${prRowButtons(editing, id, `data-remove-key="${escapeHtml(key)}"`)}</td>
     `;
     tbody.appendChild(tr);
@@ -2403,18 +2496,18 @@ function prRenderMinneTable(){
     btn.addEventListener('click', ()=>{
       const [modell, minne] = btn.dataset.removeKey.split('||');
       if(!confirm('Ta bort inköpspriset för ' + modell + ' ' + minne + '?')) return;
-      delete PRISER.modellMinne[btn.dataset.removeKey];
-      savePriser(PRISER);
-      sheetsPushPriser();
+      prAndring('tog bort ' + modell + ' ' + minne + ' (' + prKr(PRISER.modellMinne[btn.dataset.removeKey]) + ')', ()=>{ delete PRISER.modellMinne[btn.dataset.removeKey]; });
       renderAllPriceUI();
     });
   });
+  prRefurbedInfo();
   tbody.querySelectorAll('button[data-pr-save]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const vals = prReadRow(btn.closest('tr'));
       if(!vals) return;
-      PRISER.modellMinne[btn.dataset.prSave.slice(2)] = vals.pris;
-      prSaved();
+      const key = btn.dataset.prSave.slice(2);
+      prAndring(key.replace('||', ' ') + ': ' + prKr(PRISER.modellMinne[key]) + ' → ' + prKr(vals.pris), ()=>{ PRISER.modellMinne[key] = vals.pris; });
+      prStopEdit();
     });
   });
 }
@@ -2426,6 +2519,16 @@ document.getElementById('tab-priser').addEventListener('click', e=>{
     prStartEdit(ed.dataset.prEdit);
   }
   if(e.target.closest('button[data-pr-cancel]')) prStopEdit();
+  const oppna = e.target.closest('button[data-rf-oppna]');
+  if(oppna){ prRefurbedVal = oppna.dataset.rfOppna; prRenderMinneTable(); }
+  if(e.target.closest('button[data-rf-stang]')){ prRefurbedVal = null; prRenderMinneTable(); }
+  const anv = e.target.closest('button[data-rf-anvand]');
+  if(anv){
+    const key = anv.dataset.rfAnvand, pris = Number(anv.dataset.rfPris);
+    prRefurbedVal = null;
+    prAndring(key.replace('||', ' ') + ': ' + prKr(PRISER.modellMinne[key]) + ' → ' + prKr(pris) + ' (Refurbed)', ()=>{ PRISER.modellMinne[key] = pris; });
+    renderAllPriceUI();
+  }
 });
 document.getElementById('tab-priser').addEventListener('keydown', e=>{
   if(!e.target.matches('tr.pr-editing input')) return;
@@ -2455,6 +2558,7 @@ function renderAllPriceUI(){
   if(typeof gaPopulate === 'function') gaPopulate();
   prRenderMainTable();
   prRenderMinneTable();
+  prRenderUndo();
   ikPopulateSelects();
   berakInkopskalkyl();
   berakVadViSaljerFor();
@@ -2462,13 +2566,13 @@ function renderAllPriceUI(){
 document.getElementById('pr_addmodel').addEventListener('click', ()=>{
   const namn = (prompt('Namn på ny modell (t.ex. "iPhone 18 Pro"):') || '').trim().replace(/\s+/g,' ');
   if(!namn) return;
-  if(!PRISER.modeller.includes(namn)) PRISER.modeller.push(namn);
-  PRISER.batteri[namn] = PRISER.batteri[namn]||0;
-  PRISER.displayer[namn] = PRISER.displayer[namn]||0;
-  PRISER.baksidor[namn] = PRISER.baksidor[namn]||0;
-  PRISER.baksidorHousing[namn] = PRISER.baksidorHousing[namn]||0;
-  savePriser(PRISER);
-  sheetsPushPriser();
+  prAndring('lade till modellen ' + namn, ()=>{
+    if(!PRISER.modeller.includes(namn)) PRISER.modeller.push(namn);
+    PRISER.batteri[namn] = PRISER.batteri[namn]||0;
+    PRISER.displayer[namn] = PRISER.displayer[namn]||0;
+    PRISER.baksidor[namn] = PRISER.baksidor[namn]||0;
+    PRISER.baksidorHousing[namn] = PRISER.baksidorHousing[namn]||0;
+  });
   renderAllPriceUI();
 });
 document.getElementById('pr_addminne').addEventListener('click', ()=>{
@@ -2485,27 +2589,18 @@ document.getElementById('pr_addminne').addEventListener('click', ()=>{
   if(key in PRISER.modellMinne && !confirm(modell + ' ' + minne + ' finns redan (' + formatAmount(PRISER.modellMinne[key], false) + ' kr). Skriva över?')) return;
   const pris = parseAmount(prompt('Inköpspris för ' + modell + ' ' + minne + ' (kr):'));
   if(pris === null) return;
-  PRISER.modellMinne[key] = pris;
-  if(!PRISER.minneOptioner.includes(minne)) PRISER.minneOptioner.push(minne);
-  savePriser(PRISER);
-  sheetsPushPriser();
+  prAndring((key in PRISER.modellMinne ? 'ändrade ' : 'lade till ') + modell + ' ' + minne + ' (' + prKr(pris) + ')', ()=>{
+    PRISER.modellMinne[key] = pris;
+    if(!PRISER.minneOptioner.includes(minne)) PRISER.minneOptioner.push(minne);
+  });
   renderAllPriceUI();
 });
-document.getElementById('pr_reset').addEventListener('click', ()=>{
-  if(!confirm('Återställ ALLA priser till grundvärdena? Dina ändringar försvinner.')) return;
-  PRISER = {
-    modeller: SEED_MODELLER.slice(),
-    minneOptioner: SEED_MINNE.slice(),
-    batteri: Object.assign({}, SEED_BATTERI),
-    displayer: Object.assign({}, SEED_DISPLAYER),
-    baksidor: Object.assign({}, SEED_BAKSIDOR),
-    baksidorHousing: Object.assign({}, SEED_BAKSIDOR_HOUSING),
-    modellMinne: Object.assign({}, SEED_MODELL_MINNE)
-  };
-  savePriser(PRISER);
-  sheetsPushPriser();
-  renderAllPriceUI();
-});
+document.getElementById('pr_undo').addEventListener('click', prAngra);
+// Refurbed-priserna: hämta när appen startar och när Priser-fliken öppnas (högst var 10:e minut).
+let prRefurbedHamtad = 0;
+function prRefurbedOmGammal(){ if(Date.now() - prRefurbedHamtad > 10*60*1000){ prRefurbedHamtad = Date.now(); prHamtaRefurbed(); } }
+setTimeout(prRefurbedOmGammal, 3000);
+document.addEventListener('click', e=>{ const t = e.target.closest('[data-tab="priser"]'); if(t) prRefurbedOmGammal(); });
 
 /* =========================================================================
    GOOGLE SHEETS-SYNK (Kassaregister + Priser, delas mellan datorer)
@@ -2514,7 +2609,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-21e';
+const KASSAAPP_VERSION = '2026-11-21f';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
