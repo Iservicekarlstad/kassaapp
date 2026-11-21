@@ -369,6 +369,7 @@
     #tab-kassaregister .ga-grid .field{margin:0;min-width:0;}
     #tab-kassaregister .kr-loomis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 14px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);}
     #tab-kassaregister .kr-loomis .field{margin:0;min-width:0;}
+    #tab-kassaregister .kr-loomis [hidden]{display:none !important;}
     #tab-kassaregister .ga-seg{display:flex;gap:6px;}
     #tab-kassaregister .ga-seg button{flex:1 1 0;padding:9px 14px;border:1.5px solid var(--border);background:#fff;border-radius:10px;font:inherit;font-size:14px;font-weight:500;color:var(--text);cursor:pointer;transition:all .12s ease;}
     #tab-kassaregister .ga-seg button:hover{border-color:var(--navy);}
@@ -2406,7 +2407,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-21a';
+const KASSAAPP_VERSION = '2026-11-21b';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
