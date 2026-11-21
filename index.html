@@ -2407,7 +2407,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-21b';
+const KASSAAPP_VERSION = '2026-11-21c';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -3383,11 +3383,14 @@ async function iserviceUpdatePrices(){
   btn.disabled = true;
   rdSetUpdateStatus('Hämtar priser från iService…');
   try{
-    const url = base + (base.includes('?') ? '&' : '?') + 'type=iserviceprislista';
+    // Prislistan hämtas via workern, som kräver den delade nyckeln (samma som för Fortnox/Sheets).
+    const key = loadFortnoxKey() || sheetsKey();
+    if(!key) throw new Error('Delad nyckel saknas på den här enheten – fyll i den under ☁ Google Sheets eller i Gör artikel.');
+    const url = base + (base.includes('?') ? '&' : '?') + 'type=iserviceprislista&key=' + encodeURIComponent(key);
     const res = await sheetsFetchWithTimeout(url, {}, 20000);
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
-    if(!json.ok) throw new Error(json.error || 'Okänt fel från Apps Script.');
+    if(!json.ok) throw new Error(json.error || 'Okänt fel från servern.');
 
     let updatedModels = 0, newModels = 0, updatedFields = 0;
     Object.keys(json.brands || {}).forEach(brand=>{
