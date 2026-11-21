@@ -233,6 +233,10 @@
 
     .offert-doc { padding:20px 16px; }
   }
+  #tab-priser td.pr-actions{white-space:nowrap;}
+  #tab-priser td.pr-actions .btn + .btn{margin-left:4px;}
+  #tab-priser tr.pr-editing td{background:#fff7e0;}
+  #tab-priser .pr-saknas{color:var(--coral);font-weight:600;font-size:12px;}
 
   @media print {
     /* display:none (istället för visibility:hidden) tar bort elementen helt ur layouten, så att
@@ -621,7 +625,7 @@
 <section id="tab-priser" class="hidden">
   <div class="card">
     <h2>Priser</h2>
-    <p class="small">Detta är prislistan som kalkylatorn hämtar priser från. Ändra eller lägg till modeller vid behov – sparas automatiskt.</p>
+    <p class="small">Detta är prislistan som kalkylatorn hämtar priser från. Tryck "Ändra" på en rad, skriv in de nya priserna och tryck "Spara" (eller Enter). "Ej satt" betyder att priset inte är ifyllt ännu.</p>
     <div class="toolbar">
       <button class="btn" id="pr_addmodel">+ Lägg till modell</button>
       <button class="btn secondary" id="pr_addminne">+ Lägg till inköpspris (modell+minne)</button>
@@ -1653,6 +1657,7 @@ function loadPriser(){
 }
 function savePriser(p){ localStorage.setItem(LS_PRISER, JSON.stringify(p)); }
 let PRISER = loadPriser();
+if(typeof prNormalize === 'function' && prNormalize(PRISER)) savePriser(PRISER);
 
 // Kassaregistret ligger i Firebase (tidigare fanns första halvåret 2026 inbakat här som startdata).
 // En enhet som ännu inte anslutit börjar tom och fylls på när den delade nyckeln är ifylld.
@@ -2279,34 +2284,70 @@ function berakPrissattning(){
 /* =========================================================================
    PRISER (redigerbar)
    ========================================================================= */
+// Raderna är låsta tills man trycker "Ändra" – då blir just den raden redigerbar och "Spara"
+// skickar ändringen. Förr sparades varje fält direkt när man lämnade det, så ett felklick eller en
+// felskrivning kunde ändra eller ta bort priser utan att någon märkte det.
+let prEditKey = null;   // 'm:<modell>' eller 'k:<modell||minne>' för raden som redigeras
+function prCell(v){
+  const n = Number(v) || 0;
+  if(n === PRIS_PLATSHALLARE) return '<span class="pr-saknas" title="Priset är inte satt ännu">Ej satt</span>';
+  return escapeHtml(formatAmount(n, false));
+}
+function prInput(field, v){
+  return `<input type="text" class="price-edit-row" inputmode="decimal" data-field="${field}" value="${escapeHtml(v ?? 0)}">`;
+}
+function prRowButtons(editing, id, removeAttr){
+  return editing
+    ? `<button class="btn" style="padding:3px 10px;font-size:12px" data-pr-save="${escapeHtml(id)}">Spara</button>
+       <button class="btn secondary" style="padding:3px 10px;font-size:12px" data-pr-cancel="1">Avbryt</button>`
+    : `<button class="btn secondary" style="padding:3px 10px;font-size:12px" data-pr-edit="${escapeHtml(id)}">Ändra</button>
+       <button class="btn danger" style="padding:3px 8px;font-size:12px" ${removeAttr}>Ta bort</button>`;
+}
+function prStartEdit(id){
+  prEditKey = id;
+  renderAllPriceUI();
+  const first = document.querySelector('#tab-priser tr.pr-editing input');
+  if(first){ first.focus(); first.select(); }
+}
+function prStopEdit(){
+  prEditKey = null;
+  renderAllPriceUI();
+}
+function prReadRow(tr){
+  const out = {};
+  for(const inp of tr.querySelectorAll('input[data-field]')){
+    const v = parseAmount(inp.value);
+    if(v === null || v < 0){ alert('"' + inp.value + '" är inget giltigt pris.'); inp.focus(); return null; }
+    out[inp.dataset.field] = v;
+  }
+  return out;
+}
+function prSaved(){
+  savePriser(PRISER);
+  sheetsPushPriser();
+  prStopEdit();
+}
 function prRenderMainTable(){
   const tbody = document.querySelector('#pr_maintable tbody');
   tbody.innerHTML = '';
   PRISER.modeller.forEach(modell=>{
+    const id = 'm:' + modell;
+    const editing = prEditKey === id;
     const tr = document.createElement('tr');
+    if(editing) tr.className = 'pr-editing';
     // "Baksida (med Housing)" är bara ett relevant reparationsalternativ för iPhone 13 och nyare
-    // (se trIsHousingEligible) – för äldre modeller visas en tom cell istället för ett inputfält,
-    // så tabellen inte ger sken av att det går att prissätta något som inte går att välja i kalkylerna.
-    const housingCell = trIsHousingEligible(modell)
-      ? `<input type="text" class="price-edit-row" data-type="baksidorHousing" data-modell="${escapeHtml(modell)}" value="${escapeHtml(PRISER.baksidorHousing[modell]??0)}">`
-      : '<span class="small" style="color:var(--muted);">–</span>';
+    // (se trIsHousingEligible) – för äldre modeller visas en tom cell istället.
+    const housing = trIsHousingEligible(modell);
+    const cell = (field)=> editing ? prInput(field, PRISER[field][modell]) : prCell(PRISER[field][modell]);
     tr.innerHTML = `
       <td data-label="Modell" style="text-align:left">${escapeHtml(modell)}</td>
-      <td data-label="Batteri (kr)"><input type="text" class="price-edit-row" data-type="batteri" data-modell="${escapeHtml(modell)}" value="${escapeHtml(PRISER.batteri[modell]??0)}"></td>
-      <td data-label="Display (kr)"><input type="text" class="price-edit-row" data-type="displayer" data-modell="${escapeHtml(modell)}" value="${escapeHtml(PRISER.displayer[modell]??0)}"></td>
-      <td data-label="Baksida (kr)"><input type="text" class="price-edit-row" data-type="baksidor" data-modell="${escapeHtml(modell)}" value="${escapeHtml(PRISER.baksidor[modell]??0)}"></td>
-      <td data-label="Baksida med Housing (kr)">${housingCell}</td>
-      <td data-label="Åtgärd"><button class="btn danger" style="padding:3px 8px;font-size:12px" data-remove-modell="${escapeHtml(modell)}">Ta bort</button></td>
+      <td data-label="Batteri (kr)">${cell('batteri')}</td>
+      <td data-label="Display (kr)">${cell('displayer')}</td>
+      <td data-label="Baksida (kr)">${cell('baksidor')}</td>
+      <td data-label="Baksida med Housing (kr)">${housing ? cell('baksidorHousing') : '<span class="small" style="color:var(--muted);">–</span>'}</td>
+      <td data-label="Åtgärd" class="pr-actions">${prRowButtons(editing, id, `data-remove-modell="${escapeHtml(modell)}"`)}</td>
     `;
     tbody.appendChild(tr);
-  });
-  tbody.querySelectorAll('input.price-edit-row').forEach(inp=>{
-    inp.addEventListener('change', ()=>{
-      const v = parseAmount(inp.value) || 0;
-      PRISER[inp.dataset.type][inp.dataset.modell] = v;
-      savePriser(PRISER);
-      sheetsPushPriser();
-    });
   });
   tbody.querySelectorAll('button[data-remove-modell]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -2320,36 +2361,84 @@ function prRenderMainTable(){
       renderAllPriceUI();
     });
   });
+  tbody.querySelectorAll('button[data-pr-save]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const modell = btn.dataset.prSave.slice(2);
+      const vals = prReadRow(btn.closest('tr'));
+      if(!vals) return;
+      Object.keys(vals).forEach(f=>{ PRISER[f][modell] = vals[f]; });
+      prSaved();
+    });
+  });
 }
 function prRenderMinneTable(){
   const tbody = document.querySelector('#pr_minnetable tbody');
   tbody.innerHTML = '';
   Object.keys(PRISER.modellMinne).sort().forEach(key=>{
     const [modell, minne] = key.split('||');
+    const id = 'k:' + key;
+    const editing = prEditKey === id;
     const tr = document.createElement('tr');
+    if(editing) tr.className = 'pr-editing';
     tr.innerHTML = `
       <td data-label="Modell" style="text-align:left">${escapeHtml(modell)}</td>
       <td data-label="Minne">${escapeHtml(minne)}</td>
-      <td data-label="Inköpspris (kr)"><input type="text" class="price-edit-row" data-key="${escapeHtml(key)}" value="${escapeHtml(PRISER.modellMinne[key])}"></td>
-      <td data-label="Åtgärd"><button class="btn danger" style="padding:3px 8px;font-size:12px" data-remove-key="${escapeHtml(key)}">Ta bort</button></td>
+      <td data-label="Inköpspris (kr)">${editing ? prInput('pris', PRISER.modellMinne[key]) : prCell(PRISER.modellMinne[key])}</td>
+      <td data-label="Åtgärd" class="pr-actions">${prRowButtons(editing, id, `data-remove-key="${escapeHtml(key)}"`)}</td>
     `;
     tbody.appendChild(tr);
   });
-  tbody.querySelectorAll('input.price-edit-row').forEach(inp=>{
-    inp.addEventListener('change', ()=>{
-      PRISER.modellMinne[inp.dataset.key] = parseAmount(inp.value) || 0;
-      savePriser(PRISER);
-      sheetsPushPriser();
-    });
-  });
   tbody.querySelectorAll('button[data-remove-key]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
+      const [modell, minne] = btn.dataset.removeKey.split('||');
+      if(!confirm('Ta bort inköpspriset för ' + modell + ' ' + minne + '?')) return;
       delete PRISER.modellMinne[btn.dataset.removeKey];
       savePriser(PRISER);
       sheetsPushPriser();
-      prRenderMinneTable();
+      renderAllPriceUI();
     });
   });
+  tbody.querySelectorAll('button[data-pr-save]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const vals = prReadRow(btn.closest('tr'));
+      if(!vals) return;
+      PRISER.modellMinne[btn.dataset.prSave.slice(2)] = vals.pris;
+      prSaved();
+    });
+  });
+}
+// Ändra/Avbryt fungerar likadant i båda tabellerna. Enter = Spara, Esc = Avbryt.
+document.getElementById('tab-priser').addEventListener('click', e=>{
+  const ed = e.target.closest('button[data-pr-edit]');
+  if(ed){
+    if(prEditKey && prEditKey !== ed.dataset.prEdit && !confirm('Du har en rad som inte är sparad. Släppa den ändringen?')) return;
+    prStartEdit(ed.dataset.prEdit);
+  }
+  if(e.target.closest('button[data-pr-cancel]')) prStopEdit();
+});
+document.getElementById('tab-priser').addEventListener('keydown', e=>{
+  if(!e.target.matches('tr.pr-editing input')) return;
+  if(e.key === 'Enter'){ e.preventDefault(); e.target.closest('tr').querySelector('button[data-pr-save]').click(); }
+  if(e.key === 'Escape') prStopEdit();
+});
+// Städar prislistan: mellanslag i början/slutet av modellnamn och minne (t.ex. "iPhone 12 Pro Max "
+// som aldrig matchade i kalkylerna) och minne utan enhet ("256" → "256GB"). Returnerar true om något ändrades.
+function prNormMinne(m){ m = String(m||'').trim(); return /^\d+$/.test(m) ? m + 'GB' : m.replace(/\s+(GB|TB)$/i, (x,u)=>u.toUpperCase()); }
+function prNormalize(P){
+  if(!P || !P.modellMinne || !Array.isArray(P.modeller)) return false;
+  const before = JSON.stringify(P);
+  P.modeller = [...new Set(P.modeller.map(m=>String(m).trim()).filter(Boolean))];
+  ['batteri','displayer','baksidor','baksidorHousing'].forEach(f=>{
+    if(!P[f]) return;
+    Object.keys(P[f]).forEach(k=>{ const t = k.trim(); if(t !== k){ if(!(t in P[f])) P[f][t] = P[f][k]; delete P[f][k]; } });
+  });
+  Object.keys(P.modellMinne).forEach(k=>{
+    const [mo, mi] = k.split('||');
+    const t = String(mo||'').trim() + '||' + prNormMinne(mi);
+    if(t !== k){ if(!(t in P.modellMinne)) P.modellMinne[t] = P.modellMinne[k]; delete P.modellMinne[k]; }
+  });
+  if(Array.isArray(P.minneOptioner)) P.minneOptioner = [...new Set(P.minneOptioner.map(prNormMinne).filter(Boolean))];
+  return JSON.stringify(P) !== before;
 }
 function renderAllPriceUI(){
   if(typeof gaPopulate === 'function') gaPopulate();
@@ -2360,7 +2449,7 @@ function renderAllPriceUI(){
   berakVadViSaljerFor();
 }
 document.getElementById('pr_addmodel').addEventListener('click', ()=>{
-  const namn = prompt('Namn på ny modell (t.ex. "iPhone 18 Pro"):');
+  const namn = (prompt('Namn på ny modell (t.ex. "iPhone 18 Pro"):') || '').trim().replace(/\s+/g,' ');
   if(!namn) return;
   if(!PRISER.modeller.includes(namn)) PRISER.modeller.push(namn);
   PRISER.batteri[namn] = PRISER.batteri[namn]||0;
@@ -2372,13 +2461,20 @@ document.getElementById('pr_addmodel').addEventListener('click', ()=>{
   renderAllPriceUI();
 });
 document.getElementById('pr_addminne').addEventListener('click', ()=>{
-  const modell = prompt('Modell (måste stavas exakt som i listan ovan):');
-  if(!modell) return;
-  const minne = prompt('Minne (t.ex. 128GB):');
-  if(!minne) return;
-  const pris = parseAmount(prompt('Inköpspris (kr):'));
+  const svar = prompt('Modell (t.ex. "iPhone 12 Pro Max"):');
+  if(!svar) return;
+  // Matcha mot modellistan oavsett stora/små bokstäver och mellanslag, så det inte blir en "ny" modell
+  // som kalkylerna aldrig hittar.
+  const modell = PRISER.modeller.find(m => m.toLowerCase().replace(/\s+/g,' ') === svar.trim().toLowerCase().replace(/\s+/g,' '));
+  if(!modell){ alert('Hittade ingen modell som heter "' + svar.trim() + '". Kontrollera stavningen i tabellen ovan, eller lägg först till modellen med "+ Lägg till modell".'); return; }
+  const minneSvar = prompt('Minne för ' + modell + ' (t.ex. 128GB, 256GB, 1TB):');
+  if(!minneSvar) return;
+  const minne = prNormMinne(minneSvar);
+  const key = modell + '||' + minne;
+  if(key in PRISER.modellMinne && !confirm(modell + ' ' + minne + ' finns redan (' + formatAmount(PRISER.modellMinne[key], false) + ' kr). Skriva över?')) return;
+  const pris = parseAmount(prompt('Inköpspris för ' + modell + ' ' + minne + ' (kr):'));
   if(pris === null) return;
-  PRISER.modellMinne[modell+'||'+minne] = pris;
+  PRISER.modellMinne[key] = pris;
   if(!PRISER.minneOptioner.includes(minne)) PRISER.minneOptioner.push(minne);
   savePriser(PRISER);
   sheetsPushPriser();
@@ -2407,7 +2503,7 @@ const LS_SHEETS_URL = 'kassaapp_sheets_url_v1';
 const SHEETS_KASSA_COLS = 10; // datum, oppning, innan, fattIn, utgift, efter, stangning, varde, diff, kommentar
 
 // Versionsstämpel – visas i Google Sheets-panelen så man kan se om en dator kör en gammal kopia av appen.
-const KASSAAPP_VERSION = '2026-11-21c';
+const KASSAAPP_VERSION = '2026-11-21d';
 // Rättar vanliga fel i inklistrade adresser. Viktigast: är man inloggad på flera Google-konton kopierar
 // webbläsaren adressen som ".../macros/u/1/s/.../exec" – den kräver inloggning, och då blockerar
 // webbläsaren svaret ("Failed to fetch"). Tar även bort mellanslag/radbrytningar och "?..."-parametrar,
@@ -3005,7 +3101,7 @@ function kassaFBShowReady(meta){
 let kassaFBPriceRenderPending = false;
 function kassaFBRenderPrices(){
   const a = document.activeElement;
-  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){ kassaFBPriceRenderPending = true; return; }
+  if((a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) || prEditKey){ kassaFBPriceRenderPending = true; return; }
   kassaFBPriceRenderPending = false;
   renderAllPriceUI();
 }
@@ -3042,7 +3138,9 @@ function kassaFBOnPriser(docs, meta){
   const merged = kassaPriserFromObject(p);
   if(!merged) return;                        // tomt/ofullständigt – migreringen tar hand om det
   PRISER = merged;
+  const stadat = prNormalize(PRISER);
   savePriser(PRISER);
+  if(stadat) setTimeout(()=>kassaFBWritePriser(), 0);
   kassaFBRenderPrices();
 }
 
